@@ -11,4 +11,4 @@ ndarray = "0.15.3"
 hdf5 = "0.7.1"
 fftw = "0.7.0"
 assert_approx_eq = "1.1.0"
-
+GSL = "4"

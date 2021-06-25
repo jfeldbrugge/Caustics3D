@@ -3,6 +3,26 @@
 version = 3
 
 [[package]]
+name = "GSL"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a580f5b2e33b41637e7255c0e748825b92f0849795f90b9df2e05b08e687924c"
+dependencies = [
+ "GSL-sys",
+ "paste",
+]
+
+[[package]]
+name = "GSL-sys"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbf44cd363ba6b685de2ead20a580ff72cee2e953285bd8ca8cc9208d58dace5"
+dependencies = [
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -107,6 +127,7 @@ dependencies = [
 name = "caustics3d"
 version = "0.1.0"
 dependencies = [
+ "GSL",
  "assert_approx_eq",
  "clap",
  "fftw",
@@ -499,6 +520,12 @@ dependencies = [
  "smallvec",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 
 [[package]]
 name = "pkg-config"
