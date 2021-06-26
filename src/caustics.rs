@@ -10,7 +10,7 @@ use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
 
 use std::str::FromStr;
-// use std::f64::consts::PI;
+use std::f64::consts::PI;
 
 fn read_box_properties(file: &hdf5::File) -> Result<BoxProperties, Error> {
     let pars = file.group("parameters")?;
@@ -69,6 +69,91 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
 
     Ok(())
 }
+
+struct Sym3 ([f64; 6]);
+
+impl std::ops::Index<(u8, u8)> for Sym3 {
+    type Output = f64;
+    fn index(&self, idx: (u8, u8)) -> &Self::Output {
+        let (i, j) = idx;
+        if i > j {
+            self.index((j, i))
+        } else {
+            let k: usize = (((7 - i) * i) / 2 + j) as usize;
+            let Sym3(d) = self;
+            &d[k]
+        }
+    }
+}
+
+fn tuple3_sort(x: (f64, f64, f64)) -> (f64, f64, f64) {
+    let (a, b, c) = x;
+
+    if a > b {
+        if b > c {
+            (a, b, c)
+        } else if c > a {
+            (c, a, b)
+        } else {
+            (a, c, b)
+        }
+    } else {
+        if a > c {
+            (b, a, c)
+        } else if c > b {
+            (c, b, a)
+        } else {
+            (b, c, a)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tuple3_sort() {
+        assert_eq!(tuple3_sort((1., 2., 3.)), (3., 2., 1.));
+        assert_eq!(tuple3_sort((1., 3., 2.)), (3., 2., 1.));
+        assert_eq!(tuple3_sort((2., 1., 3.)), (3., 2., 1.));
+        assert_eq!(tuple3_sort((2., 3., 1.)), (3., 2., 1.));
+        assert_eq!(tuple3_sort((3., 1., 2.)), (3., 2., 1.));
+        assert_eq!(tuple3_sort((3., 2., 1.)), (3., 2., 1.));
+    }
+}
+
+impl Sym3 {
+    fn trace(&self) -> f64 {
+        let Sym3(d) = self;
+        d[0] + d[3] + d[5]
+    }
+
+    fn square_trace(&self) -> f64 {
+        let Sym3(d) = self;
+        d[0]*d[0] + 2.*d[1]*d[1] + 2.*d[2]*d[2]
+                  +    d[3]*d[3] + 2.*d[4]*d[4]
+                                 +    d[5]*d[5]
+    }
+
+    fn eigenvalues(&self) -> (f64, f64, f64) {
+        let Sym3(d) = self;
+        let q = self.trace() / 3.;
+        let mut f: [f64; 6] = d.clone();
+        f[0] -= q; f[3] -= q; f[5] -=q;
+
+        let p = (self.square_trace() / 6.).sqrt();
+        for i in 0..6 { f[i] /= p; }
+        let phi = (Sym3(f).trace() / 2.).acos() / 3.;
+
+        let a = q + 2. * p * phi.cos();
+        let b = q + 2. * p * (phi + 2. * PI / 3.).cos();
+        let c = q + 2. * p * (phi + 4. * PI / 3.).cos();
+
+        tuple3_sort((a, b, c))
+    }
+}
+
 
 pub fn run_caustics(args: &ArgMatches) -> Result<(), Error> {
     let filename = args.value_of("file").unwrap();
