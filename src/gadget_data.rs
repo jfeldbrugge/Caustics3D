@@ -94,7 +94,7 @@ pub fn run_gadget_ics(args: &ArgMatches) -> Result<(), Error> {
         let a_view : ndarray::ArrayViewMut1<f64> = 
             ndarray::ArrayViewMut::from_shape(n.pow(3), &mut a).unwrap();
         v_k.assign_to(a_view);
-        forward.r2c(&mut a, &mut b).unwrap();
+        forward.r2c(&mut a, &mut b)?;
         
         let b_view : ndarray::ArrayView3<c64> =
             ndarray::ArrayView::from_shape([n, n, n/2 + 1], &b).unwrap();
@@ -109,7 +109,7 @@ pub fn run_gadget_ics(args: &ArgMatches) -> Result<(), Error> {
     let b_view : ndarray::ArrayViewMut3<c64> =
         ndarray::ArrayViewMut::from_shape([n, n, n/2 + 1], &mut b).unwrap();
     pot_k.assign_to(b_view);
-    inverse.c2r(&mut b, &mut a).unwrap();
+    inverse.c2r(&mut b, &mut a)?;
 
     let mut a_view : ndarray::ArrayViewMut3<f64> =
         ndarray::ArrayViewMut::from_shape([n, n, n], &mut a).unwrap();

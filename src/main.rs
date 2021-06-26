@@ -8,17 +8,12 @@ mod cosmology;
 mod box_properties;
 mod gadget_data;
 mod error;
+mod caustics;
 
 use cosmology::{Cosmology,EDS_COSMOLOGY,PLANCK_COSMOLOGY,SEC_PER_GYR};
 use error::{Error};
 
 use std::str::FromStr;
-
-impl From<hdf5::Error> for Error {
-    fn from(e: hdf5::Error) -> Error {
-        Error::Hdf5(e)
-    }
-}
 
 fn run_cosmology(args: &ArgMatches) -> Result<(), Error> {
     let mut c: Cosmology = if args.is_present("eds") {
@@ -78,7 +73,7 @@ fn main() -> Result<(), Error> {
                          .takes_value(true)
                          .help("Ωl - dark energy density")))
         .subcommand(SubCommand::with_name("gadget-ics")
-                    .about("recompute initial density field from Gadget4 ICs")
+                    .about("recompute initial potential field from Gadget4 ICs")
                     .arg(Arg::with_name("input")
                          .help("Input file, HDF5 with Gadget4 format.")
                          .required(true)
@@ -89,11 +84,28 @@ fn main() -> Result<(), Error> {
                          .short("o")
                          .takes_value(true)
                          .required(true)))
+        .subcommand(SubCommand::with_name("caustics")
+                    .about("compute caustics")
+                    .arg(Arg::with_name("file")
+                         .help("HDF5 archive to work on")
+                         .required(true)
+                         .index(1))
+                    .arg(Arg::with_name("scale")
+                         .help("set smoothing scale")
+                         .long("scale")
+                         .short("s")
+                         .takes_value(true))
+                    .arg(Arg::with_name("name")
+                         .help("name of output group in HDF5 file (default: caustics)")
+                         .long("name")
+                         .short("n")
+                         .takes_value(true)))
         .get_matches();
 
     match args.subcommand() {
         ("cosmology",  Some(args)) => run_cosmology(args),
         ("gadget-ics", Some(args)) => gadget_data::run_gadget_ics(args),
+        ("caustics",   Some(args)) => caustics::run_caustics(args),
         _                          => Ok(())
     }
 }
