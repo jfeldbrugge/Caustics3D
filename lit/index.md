@@ -3,6 +3,12 @@ title: Caustic skeleton of 3D gradient deformation fields
 author: Feldbrugge & Hidding
 ---
 
+$$
+% LaTeX definitions
+\renewcommand{\vec}[1]{{\bf #1}}
+\newcommand{\grad}{\vec{\nabla}}
+$$
+
 Lagrangian map:
 
 $$\vec{x}(t) = \vec{q} + D \vec{v}(D).$$
@@ -17,7 +23,7 @@ We have eigenvalues $\alpha \le \beta \le \gamma$ and corresponding eigenvectors
 
 $A_2$ or fold singularities can be found where $D = 1/\lambda_i$.
 
-$A_3$ or cusp singularities can be found where $v_i \cdot \grad lambda_i = 0.$
+$A_3$ or cusp singularities can be found where $v_i \cdot \grad \lambda_i = 0.$
 
 We know how to find these in 2D from Hidding 2014, which can be extended to 3D.
 

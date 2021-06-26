@@ -113,6 +113,11 @@ code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warni
  -->
 
 <main role="main" class="flex-fill"><div class="container my-5">
+<p><span class="math display">\[
+% LaTeX definitions
+\renewcommand{\vec}[1]{{\bf #1}}
+\newcommand{\grad}{\vec{\nabla}}
+\]</span></p>
 <p>Lagrangian map:</p>
 <p><span class="math display">\[\vec{x}(t) = \vec{q} + D \vec{v}(D).\]</span></p>
 <p>Hessian:</p>
@@ -120,7 +125,7 @@ code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warni
 <p>We have eigenvalues <span class="math inline">\(\alpha \le \beta \le \gamma\)</span> and corresponding eigenvectors <span class="math inline">\(v_{\alpha}\)</span>, <span class="math inline">\(v_{\beta}\)</span>, <span class="math inline">\(v_{\gamma}\)</span>. Alternatively we may write <span class="math inline">\(\lambda_1 \dots \lambda_3\)</span> and <span class="math inline">\(v_1 \dots v_3\)</span>.</p>
 <h1 id="singularities">Singularities</h1>
 <p><span class="math inline">\(A_2\)</span> or fold singularities can be found where <span class="math inline">\(D = 1/\lambda_i\)</span>.</p>
-<p><span class="math inline">\(A_3\)</span> or cusp singularities can be found where <span class="math inline">\(v_i \cdot \grad lambda_i = 0.\)</span></p>
+<p><span class="math inline">\(A_3\)</span> or cusp singularities can be found where <span class="math inline">\(v_i \cdot \grad \lambda_i = 0.\)</span></p>
 <p>We know how to find these in 2D from Hidding 2014, which can be extended to 3D.</p>
 <h1 id="numeric-methods">Numeric methods</h1>
 <p>We assume the values of the Hessian are known at grid points. By means of interpolation we can compute continuous functional representations of the eigenvalue and eigenvector fields.</p>
