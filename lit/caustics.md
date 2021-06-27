@@ -5,7 +5,7 @@ use crate::error::{Error};
 use crate::box_properties::{BoxProperties, tuple3_idx};
 
 use clap::{ArgMatches};
-use ndarray::{Ix3};
+use ndarray::{Array3, Ix3, indices};
 use fftw::types::{Flag, c64};
 use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
@@ -30,6 +30,7 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
 
     let bp = read_box_properties(file)?;
     let n: usize = bp.logical as usize;
+    let size: f64 = n.pow(3) as f64;
 
     let mut real_buffer = AlignedVec::<f64>::new(n.pow(3));
     let mut pot_f_buffer = AlignedVec::<c64>::new(n.pow(2) * (n / 2 + 1));
@@ -59,7 +60,7 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
             for (idx, v) in pot_f.indexed_iter() {
                 let ki = bp.freq(tuple3_idx(idx, i));
                 let kj = bp.freq(tuple3_idx(idx, j));
-                hessian_f[idx] = v * c64::new(-ki * kj, 0.0);
+                hessian_f[idx] = v * c64::new(-ki * kj / size, 0.0);
             }
             ifft.c2r(&mut hessian_f_buffer, &mut real_buffer)?;
             let name = format!("H{}{}", i, j);
@@ -71,6 +72,9 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
     Ok(())
 }
 
+#[derive(Clone,Debug)]
+struct Vec3 ([f64; 3]);
+#[derive(Clone,Debug)]
 struct Sym3 ([f64; 6]);
 
 impl std::ops::Index<(u8, u8)> for Sym3 {
@@ -84,6 +88,35 @@ impl std::ops::Index<(u8, u8)> for Sym3 {
             let Sym3(d) = self;
             &d[k]
         }
+    }
+}
+
+impl std::ops::Add for Vec3 {
+    type Output = Vec3;
+    fn add(self, other: Self) -> Self {
+        let Vec3(a) = self;
+        let Vec3(b) = other;
+        let mut c = [0.0; 3];
+        for i in 0..3 { c[i] = a[i] + b[i]; }
+        Vec3(c)
+    }
+}
+
+impl num_traits::identities::Zero for Vec3 {
+    fn zero() -> Self {
+        Vec3([0.0, 0.0, 0.0])
+    }
+
+    fn is_zero(&self) -> bool {
+        let Vec3(d) = self;
+        d.iter().all(|x| x.is_zero())
+    }
+}
+
+unsafe impl hdf5::H5Type for Vec3 {
+    fn type_descriptor() -> hdf5::types::TypeDescriptor {
+        use hdf5::types::{TypeDescriptor,FloatSize};
+        TypeDescriptor::FixedArray(Box::new(TypeDescriptor::Float(FloatSize::U8)), 3)
     }
 }
 
@@ -153,6 +186,57 @@ impl Sym3 {
 
         tuple3_sort((a, b, c))
     }
+
+    fn eigenvector(&self, l: f64) -> Vec3 {
+        let Sym3(d) = self;
+        Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
+             , (l - d[0]) * d[4] + d[3] * d[1]
+             , (l - d[0]) * (l - d[1]) - d[0] * d[0] ])
+    }
+}
+
+pub fn compute_eigenvalues(file: &hdf5::File, target: &hdf5::Group) -> Result<(), Error> {
+    let bp = read_box_properties(file)?;
+    let n: usize = bp.logical as usize;
+
+    let h00 = target.dataset("H00")?.read::<f64,Ix3>()?;
+    let h01 = target.dataset("H01")?.read::<f64,Ix3>()?;
+    let h02 = target.dataset("H02")?.read::<f64,Ix3>()?;
+    let h11 = target.dataset("H11")?.read::<f64,Ix3>()?;
+    let h12 = target.dataset("H12")?.read::<f64,Ix3>()?;
+    let h22 = target.dataset("H22")?.read::<f64,Ix3>()?;
+
+    let mut lambda = (
+        Array3::<f64>::zeros([n, n, n]),
+        Array3::<f64>::zeros([n, n, n]),
+        Array3::<f64>::zeros([n, n, n]));
+
+    for idx in indices([n, n, n]) {
+        let h = Sym3([h00[idx], h01[idx], h02[idx], h11[idx], h12[idx], h22[idx]]);
+        let (a, b, c) = h.eigenvalues();
+        lambda.0[idx] = a;
+        lambda.1[idx] = b;
+        lambda.2[idx] = c;
+    }
+
+    let mut ev = Array3::<Vec3>::zeros([n, n, n]);
+    for k in 0..3 {
+        let lambda = match k {
+            0 => &lambda.0, 1 => &lambda.1, 2 => &lambda.2,
+            _ => panic!("system error") };
+
+        for idx in indices([n, n, n]) {
+            let h = Sym3([h00[idx], h01[idx], h02[idx], h11[idx], h12[idx], h22[idx]]);
+            ev[idx] = h.eigenvector(lambda[idx]);
+        }
+
+        let name = format!("lambda{}", k);
+        let group = target.create_group(name.as_str())?;
+        group.new_dataset::<f64>().shape([n, n, n]).create("eigenvalue")?.write(lambda)?;
+        group.new_dataset::<Vec3>().shape([n, n, n]).create("eigenvector")?.write(ev.view())?;
+    }
+
+    Ok(())
 }
 
 
@@ -166,6 +250,8 @@ pub fn run_caustics(args: &ArgMatches) -> Result<(), Error> {
     target.new_attr::<f64>().create("scale")?.write_scalar(&scale.unwrap_or(0.0))?;
 
     compute_hessian(&file, &target, scale)?;
+    compute_eigenvalues(&file, &target)?;
+
     Ok(())
 }
 ```

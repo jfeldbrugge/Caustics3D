@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 clap = "2.33.3"
 ndarray = "0.15.3"
+num-traits = "0.2.14"
 hdf5 = { git = "https://github.com/aldanor/hdf5-rust" }
 fftw = "0.7.0"
 assert_approx_eq = "1.1.0"

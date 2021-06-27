@@ -2,6 +2,7 @@ extern crate clap;
 extern crate hdf5;
 extern crate ndarray;
 extern crate fftw;
+extern crate num_traits;
 
 use clap::{Arg, App, SubCommand, ArgMatches};
 mod cosmology;

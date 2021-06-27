@@ -133,6 +133,7 @@ dependencies = [
  "fftw",
  "hdf5",
  "ndarray 0.15.3",
+ "num-traits",
 ]
 
 [[package]]
