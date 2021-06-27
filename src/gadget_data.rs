@@ -1,6 +1,7 @@
 use crate::cosmology::{Cosmology};
-use crate::box_properties::{BoxProperties, tuple3_idx};
+use crate::box_properties::{BoxProperties};
 use crate::error::{Error};
+use crate::numeric::{tuple3_idx};
 
 use clap::{ArgMatches};
 use ndarray::{AsArray, Array3, Array2, Ix2, Ix3};

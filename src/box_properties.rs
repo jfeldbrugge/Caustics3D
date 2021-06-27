@@ -1,13 +1,5 @@
 use std::f64::consts::{PI};
-
-pub fn tuple3_idx<T>(x: (T, T, T), idx: usize) -> T {
-    match idx {
-        0 => x.0,
-        1 => x.1,
-        2 => x.2,
-        _ => panic!("index out of range in tuple3_idx")
-    }
-}
+use crate::numeric::tuple3_idx;
 
 pub struct BoxProperties {
     pub logical: u64,

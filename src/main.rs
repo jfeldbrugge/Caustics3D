@@ -10,6 +10,7 @@ mod box_properties;
 mod gadget_data;
 mod error;
 mod caustics;
+mod numeric;
 
 use cosmology::{Cosmology,EDS_COSMOLOGY,PLANCK_COSMOLOGY,SEC_PER_GYR};
 use error::{Error};
