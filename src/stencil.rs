@@ -43,53 +43,67 @@ pub fn stencil_3x3x3(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64, Ix3>
     }
 }
 
-pub fn pencil_3(k: u8) -> impl Stencil<f64, Ix3, Ix1> {
-    match k {
-        0 => |x: &ArrayView<f64,Ix3>, i: Ix3| -> Array<f64, Ix1> {
-            let s = x.shape()[0];
-            if i[0] > 0 && i[0] < s {
-                x.index_axis(Axis(1), i[1])
-                 .index_axis(Axis(1), i[2])
-                 .slice(s![(i[0] - 1) .. (i[0] + 2)]).into_owned()
-            } else {
-                let mut result = Array::<f64,Ix1>::zeros([3]);
-                for (j, v) in result.indexed_iter_mut() {
-                    *v = x[((i[0] + j + s - 1) % s, i[1], i[2])];
-                }
-                result
-            }
-        },
-        1 => |x: &ArrayView<f64,Ix3>, i: Ix3| -> Array<f64, Ix1> {
-            let s = x.shape()[1];
-            if i[1] > 0 && i[1] < s {
-                x.index_axis(Axis(0), i[0])
-                 .index_axis(Axis(1), i[2])
-                 .slice(s![(i[1] - 1) .. (i[1] + 2)]).into_owned()
-            } else {
-                let mut result = Array::<f64,Ix1>::zeros([3]);
-                for (j, v) in result.indexed_iter_mut() {
-                    *v = x[(i[0], (i[1] + j + s - 1) % s, i[2])];
-                }
-                result
-            }
-        },
-        2 => |x: &ArrayView<f64,Ix3>, i: Ix3| -> Array<f64, Ix1> {
-            let s = x.shape()[0];
-            if i[0] > 0 && i[0] < s {
-                x.index_axis(Axis(0), i[0])
-                 .index_axis(Axis(0), i[1])
-                 .slice(s![(i[2] - 1) .. (i[2] + 2)]).into_owned()
-            } else {
-                let mut result = Array::<f64,Ix1>::zeros([3]);
-                for (j, v) in result.indexed_iter_mut() {
-                    *v = x[(i[0], i[1], (i[2] + j + s - 1) % s)];
-                }
-                result
-            }
-        },
-        _ => panic!("index error")
-    }
+macro_rules! pencil_select {
+    ( 0, $x:expr, $i:expr ) => {
+        $x.index_axis(Axis(1), $i[1])
+          .index_axis(Axis(1), $i[2])
+    };
+    ( 1, $x:expr, $i:expr ) => {
+        $x.index_axis(Axis(0), $i[0])
+          .index_axis(Axis(1), $i[2])
+    };
+    ( 2, $x:expr, $i:expr ) => {
+        $x.index_axis(Axis(0), $i[0])
+          .index_axis(Axis(0), $i[1])
+    };
 }
+
+macro_rules! pencil_index {
+    ( $k:tt, $x:expr, $i:expr, $half:expr ) => {
+        pencil_select!($k, $x, $i)
+          .slice(s![($i[$k] - $half) .. ($i[$k] + $half + 1)]).into_owned()
+    };
+}
+
+macro_rules! pencil_collect {
+    ( 0, $v:expr, $x:expr, $i:expr, $j:expr, $s:expr, $half:expr ) => {
+        *$v = $x[(($i[0] + $j + $s - $half) % $s, $i[1], $i[2])];
+    };
+    ( 1, $v:expr, $x:expr, $i:expr, $j:expr, $s:expr, $half:expr ) => {
+        *$v = $x[($i[0], ($i[1] + $j + $s - $half) % $s, $i[2])];
+    };
+    ( 2, $v:expr, $x:expr, $i:expr, $j:expr, $s:expr, $half:expr ) => {
+        *$v = $x[($i[0], $i[1], ($i[2] + $j + $s - $half) % $s)];
+    };
+}
+
+#[macro_export]
+macro_rules! define_pencil {
+    ( $vis:vis $name:ident, $k:tt, $w:expr ) => {
+        $vis fn $name(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64,Ix1> {
+            const W: usize = $w;
+            const HALF: usize = $w/2;
+
+            let s = x.shape()[$k];
+            if i[$k] > HALF-1 && i[$k] < s-HALF {
+                pencil_index!($k, x, i, HALF)
+            } else {
+                let mut result = Array::<f64,Ix1>::zeros([W]);
+                for (j, v) in result.indexed_iter_mut() {
+                    pencil_collect!($k, v, x, i, j, s, HALF);
+                }
+                result
+            }
+        }
+    };
+}
+
+define_pencil!(pub pencil_3_x, 0, 3);
+define_pencil!(pub pencil_3_y, 1, 3);
+define_pencil!(pub pencil_3_z, 2, 3);
+define_pencil!(pub pencil_5_x, 0, 5);
+define_pencil!(pub pencil_5_y, 1, 5);
+define_pencil!(pub pencil_5_z, 2, 5);
 
 #[cfg(test)]
 mod tests {
@@ -127,16 +141,23 @@ mod tests {
     fn test_pencil_3() {
         let x = Array::range(0.0, 64.0, 1.0).into_shape([4,4,4]).unwrap();
 
-        assert_eq!(pencil_3(0)(&x.view(), Ix3(0, 0, 0)),
+        assert_eq!(pencil_3_x(&x.view(), Ix3(0, 0, 0)),
                    arr1(&[48.0, 0.0, 16.0]));
-        assert_eq!(pencil_3(1)(&x.view(), Ix3(0, 0, 0)),
+        assert_eq!(pencil_3_y(&x.view(), Ix3(0, 0, 0)),
                    arr1(&[12.0, 0.0,  4.0]));
-        assert_eq!(pencil_3(2)(&x.view(), Ix3(0, 0, 0)),
+        assert_eq!(pencil_3_z(&x.view(), Ix3(0, 0, 0)),
                    arr1(&[ 3.0, 0.0,  1.0]));
-        assert_eq!(pencil_3(0)(&x.view(), Ix3(2, 2, 2)),
+        assert_eq!(pencil_3_x(&x.view(), Ix3(2, 2, 2)),
                    arr1(&[ 26.0, 42.0, 58.0]));
-        assert_eq!(pencil_3(2)(&x.view(), Ix3(2, 2, 2)),
+        assert_eq!(pencil_3_z(&x.view(), Ix3(2, 2, 2)),
                    arr1(&[ 41.0, 42.0, 43.0]));
+
+        assert_eq!(pencil_5_x(&x.view(), Ix3(1, 2, 0)),
+                   arr1(&[ 56.0, 8.0, 24.0, 40.0, 56.0 ]));
+        assert_eq!(pencil_5_y(&x.view(), Ix3(1, 2, 0)),
+                   arr1(&[ 16.0, 20.0, 24.0, 28.0, 16.0 ]));
+        assert_eq!(pencil_5_z(&x.view(), Ix3(1, 2, 0)),
+                   arr1(&[ 26.0, 27.0, 24.0, 25.0, 26.0 ]));
     }
 }
 
