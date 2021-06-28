@@ -1,5 +1,24 @@
 use std::f64::consts::PI;
 
+pub trait Modulo<RHS=Self> {
+    type Output;
+
+    fn modulo(self, rhs: RHS) -> Self::Output;
+}
+
+impl<A: num_traits::Num + Ord + Copy> Modulo for A {
+    type Output = Self;
+
+    #[inline]
+    fn modulo(self, rhs: Self) -> Self {
+        if self < Self::zero() {
+            self % rhs + rhs
+        } else {
+            self % rhs
+        }
+    }
+}
+
 #[derive(Clone,Debug)]
 pub struct Vec3 (pub [f64; 3]);
 #[derive(Clone,Debug)]

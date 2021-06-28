@@ -11,6 +11,7 @@ mod gadget_data;
 mod error;
 mod caustics;
 mod numeric;
+mod marching_tetrahedra;
 
 use cosmology::{Cosmology,EDS_COSMOLOGY,PLANCK_COSMOLOGY,SEC_PER_GYR};
 use error::{Error};

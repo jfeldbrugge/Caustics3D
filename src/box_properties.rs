@@ -1,6 +1,7 @@
 use std::f64::consts::{PI};
 use crate::numeric::tuple3_idx;
 
+#[derive(Clone, Debug)]
 pub struct BoxProperties {
     pub logical: u64,
     pub physical: f64
