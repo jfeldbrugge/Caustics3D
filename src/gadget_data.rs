@@ -82,10 +82,8 @@ pub fn run_gadget_ics(args: &ArgMatches) -> Result<(), Error> {
     eprintln!("Box: N={} pix L={} Mpc", bp.logical, bp.physical);
     let n = bp.logical as usize;
 
-    let mut forward: R2CPlan64 = R2CPlan::aligned(&[n, n, n], Flag::ESTIMATE)
-        .map_err(|e| Error::Fftw(e.to_string()))?;
-    let mut inverse: C2RPlan64 = C2RPlan::aligned(&[n, n, n], Flag::ESTIMATE)
-        .map_err(|e| Error::Fftw(e.to_string()))?;
+    let mut forward: R2CPlan64 = R2CPlan::aligned(&[n, n, n], Flag::ESTIMATE)?;
+    let mut inverse: C2RPlan64 = C2RPlan::aligned(&[n, n, n], Flag::ESTIMATE)?;
     let mut a = AlignedVec::<f64>::new(n.pow(3));
     let mut b = AlignedVec::<c64>::new(n.pow(2) * (n / 2 + 1));
     let mut pot_k = Array3::<c64>::zeros([n, n, n/2 + 1]);

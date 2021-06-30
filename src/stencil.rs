@@ -1,4 +1,4 @@
-use ndarray::{ArrayView, Array, Ix3, Ix1, Axis, s};
+use ndarray::{ArrayView, Array, Ix3, Ix1, Axis, s, indices};
 
 pub trait Stencil<T, DIn, DOut>
     : Fn (&ArrayView<T, DIn>, DIn) -> Array<T, DOut>
@@ -6,6 +6,8 @@ pub trait Stencil<T, DIn, DOut>
 impl<T, DIn, DOut, S: Fn (&ArrayView<T, DIn>, DIn) -> Array<T, DOut>>
 Stencil<T, DIn, DOut> for S {}
 
+/// Stencil of a 2x2x2 area. This is used to iterate over volume
+/// elements in the grid.
 pub fn stencil_2x2x2(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64, Ix3>
 {
     let s = x.shape();
@@ -24,6 +26,30 @@ pub fn stencil_2x2x2(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64, Ix3>
     }
 }
 
+pub fn flat_2x2x2(x: &ArrayView<f64,Ix3>, i: Ix3) -> [f64;8]
+{
+    let s = x.shape();
+    if i[0] < (s[0] - 1) && i[1] < (s[1] - 1) && i[2] < (s[2] - 1) {
+        let mut result = [0.0; 8];
+        x.slice(s![ i[0] .. (i[0] + 2)
+                  , i[1] .. (i[1] + 2)
+                  , i[2] .. (i[2] + 2) ])
+         .iter().enumerate()
+         .for_each(|(j, v)| { result[j] = *v; });
+        result
+    } else {
+        let mut result = [0.0; 8];
+        for (j, k) in indices([2, 2, 2]).into_iter().enumerate() {
+            result[j] = x[((i[0] + k.0) % s[0]
+                         , (i[1] + k.1) % s[1]
+                         , (i[2] + k.2) % s[2])];
+        }
+        result
+    }
+}
+
+/// Stencil of a 3x3x3 area. Could be useful for computing Laplacians
+/// for instance.
 pub fn stencil_3x3x3(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64, Ix3>
 {
     let s = x.shape();
@@ -77,6 +103,11 @@ macro_rules! pencil_collect {
     };
 }
 
+/// Macro for defining pencil beam stencils, or pencils for short.
+/// These are used to compute derivatives on the grid. For instance,
+/// the five-point pencil can be used to compute derivatives to the
+/// second order of precision, using a [1/12, -2/3, 0, 2/3, -1/12]
+/// FIR filter.
 #[macro_export]
 macro_rules! define_pencil {
     ( $vis:vis $name:ident, $k:tt, $w:expr ) => {
