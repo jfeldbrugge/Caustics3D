@@ -49,6 +49,27 @@ impl std::ops::Add for Vec3 {
     }
 }
 
+impl std::ops::Sub for Vec3 {
+    type Output = Vec3;
+    fn sub(self, other: Self) -> Self {
+        let Vec3(a) = self;
+        let Vec3(b) = other;
+        let mut c = [0.0; 3];
+        for i in 0..3 { c[i] = a[i] - b[i]; }
+        Vec3(c)
+    }
+}
+
+impl std::ops::Mul<f64> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, other: f64) -> Self {
+        let Vec3(a) = self;
+        let mut c = [0.0; 3];
+        for i in 0..3 { c[i] = a[i] * other; }
+        Vec3(c)
+    }
+}
+
 impl num_traits::identities::Zero for Vec3 {
     fn zero() -> Self {
         Vec3([0.0, 0.0, 0.0])
