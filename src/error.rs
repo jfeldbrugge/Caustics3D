@@ -4,7 +4,14 @@ pub enum Error {
     ArgumentError(String),
     Hdf5(hdf5::Error),
     Fftw(String),
-    Internal(String)
+    Internal(String),
+    IO(String)
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Error {
+        Error::IO(format!("{}", e))
+    }
 }
 
 impl From<hdf5::Error> for Error {

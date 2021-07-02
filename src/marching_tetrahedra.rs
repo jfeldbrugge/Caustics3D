@@ -1,15 +1,33 @@
 use crate::stencil::{flat_2x2x2};
 use crate::numeric::{Vec3};
 use crate::stencil;
+use crate::error::{Error};
 
 use ndarray::{Array, ArrayView, Ix1, Ix3, ArrayView3};
 use num_traits::identities::{Zero};
 
+use std::fs::{File};
+use std::io::Write;
+
 type Edge = (usize, usize);
 
+#[derive(Debug)]
 struct Mesh {
     vertices: Vec<Vec3>,
     triangles: Vec<[usize;3]>
+}
+
+impl Mesh {
+    fn write_obj_file(&self, filename: &str) -> Result<(), Error> {
+        let mut file = File::create(filename)?;
+        for Vec3(v) in self.vertices.iter() {
+            writeln!(&mut file, "v {} {} {}", v[0], v[1], v[2]);
+        }
+        for t in self.triangles.iter() {
+            writeln!(&mut file, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1);
+        }
+        Ok(())
+    }
 }
 
 /// Decomposition of the cube into six tetrahedra. The
@@ -85,7 +103,7 @@ fn intersect_tetrahedron(fx: &[f64;8], y: f64, vertices: &[usize;4], triangles: 
                          push_triangle(2, 3, 2, 1, 0, 3); },
         0x06 | 0x09 => { push_triangle(1, 0, 1, 3, 2, 0); 
                          push_triangle(2, 3, 2, 0, 1, 3); },
-        0x07 | 0x08 => { push_triangle(4, 1, 4, 2, 4, 3); },
+        0x07 | 0x08 => { push_triangle(3, 1, 3, 2, 3, 0); },
         _           => panic!("system error")
     }
 }
@@ -164,3 +182,27 @@ fn level_set(f: &ArrayView3<f64>, y: f64) -> Mesh {
         vertices: vertices
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_level_set() {
+        use ndarray::arr3;
+        let f = arr3(&[[[0., 1., 0.],
+                        [1., 2., 1.],
+                        [0., 1., 0.]],
+                       [[1., 2., 1.],
+                        [2., 4., 2.],
+                        [1., 2., 1.]],
+                       [[0., 1., 0.],
+                        [1., 2., 1.],
+                        [0., 1., 0.]]]);
+        let m = level_set(&f.view(), 3.0);
+        // m.write_obj_file("test.obj");
+        println!("{:?}", m);
+    }
+}
+
