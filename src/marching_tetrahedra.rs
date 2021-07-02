@@ -12,20 +12,32 @@ use std::io::Write;
 type Edge = (usize, usize);
 
 #[derive(Debug)]
-struct Mesh {
+pub struct Mesh {
     vertices: Vec<Vec3>,
     triangles: Vec<[usize;3]>
 }
 
 impl Mesh {
-    fn write_obj_file(&self, filename: &str) -> Result<(), Error> {
+    pub fn write_obj_file(&self, filename: &str) -> Result<(), Error> {
         let mut file = File::create(filename)?;
         for Vec3(v) in self.vertices.iter() {
-            writeln!(&mut file, "v {} {} {}", v[0], v[1], v[2]);
+            writeln!(&mut file, "v {} {} {}", v[0], v[1], v[2])?;
         }
         for t in self.triangles.iter() {
-            writeln!(&mut file, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1);
+            writeln!(&mut file, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1)?;
         }
+        Ok(())
+    }
+
+    pub fn write_hdf5(&self, group: &hdf5::Group) -> Result<(), Error> {
+        group.new_dataset::<Vec3>()
+            .shape([self.vertices.len()])
+            .create("vertices")?
+            .write(&self.vertices)?;
+        group.new_dataset::<[usize;3]>()
+            .shape([self.triangles.len()])
+            .create("triangles")?
+            .write(&self.triangles)?;
         Ok(())
     }
 }
@@ -142,7 +154,7 @@ fn intersect_edge(f: &ArrayView3<f64>, y: f64, a: [usize;3], b: [usize;3]) -> Ve
     grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
 }
 
-fn level_set(f: &ArrayView3<f64>, y: f64) -> Mesh {
+pub fn level_set(f: &ArrayView3<f64>, y: f64) -> Mesh {
     use std::collections::BTreeMap;
 
     let mut proto_triangles = Vec::<[ProtoVertex;3]>::new(); // <[ProtoVertex;3]>::new();

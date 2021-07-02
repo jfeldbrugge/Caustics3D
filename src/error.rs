@@ -8,6 +8,12 @@ pub enum Error {
     IO(String)
 }
 
+impl From<std::num::ParseFloatError> for Error {
+    fn from(e: std::num::ParseFloatError) -> Error {
+        Error::ArgumentError(format!("{}", e))
+    }
+}
+
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error::IO(format!("{}", e))

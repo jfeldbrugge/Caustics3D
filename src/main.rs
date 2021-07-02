@@ -88,8 +88,8 @@ fn main() -> Result<(), Error> {
                          .short("o")
                          .takes_value(true)
                          .required(true)))
-        .subcommand(SubCommand::with_name("caustics")
-                    .about("compute caustics")
+        .subcommand(SubCommand::with_name("eigen")
+                    .about("compute eigenvalues")
                     .arg(Arg::with_name("file")
                          .help("HDF5 archive to work on")
                          .required(true)
@@ -100,16 +100,34 @@ fn main() -> Result<(), Error> {
                          .short("s")
                          .takes_value(true))
                     .arg(Arg::with_name("name")
-                         .help("name of output group in HDF5 file (default: caustics)")
+                         .help("name of output group in HDF5 file (default: 0)")
                          .long("name")
                          .short("n")
                          .takes_value(true)))
+        .subcommand(SubCommand::with_name("a2")
+                    .about("compute A2 surfaces")
+                    .arg(Arg::with_name("file")
+                         .help("HDF5 archive to work on")
+                         .required(true)
+                         .index(1))
+                    .arg(Arg::with_name("name")
+                         .help("output group")
+                         .long("name")
+                         .short("n")
+                         .takes_value(true))
+                    .arg(Arg::with_name("growing-mode")
+                         .help("value of growing-mode solution (aka time)")
+                         .long("growing-mode")
+                         .short("D")
+                         .takes_value(true)
+                         .required(true)))
         .get_matches();
 
     match args.subcommand() {
         ("cosmology",  Some(args)) => run_cosmology(args),
         ("gadget-ics", Some(args)) => gadget_data::run_gadget_ics(args),
-        ("caustics",   Some(args)) => caustics::run_caustics(args),
+        ("eigen",      Some(args)) => caustics::run_eigen(args),
+        ("a2",         Some(args)) => caustics::run_a2(args),
         _                          => Ok(())
     }
 }

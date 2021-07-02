@@ -3,6 +3,7 @@
 use crate::error::{Error};
 use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
+use crate::marching_tetrahedra::{Mesh, level_set};
 
 use clap::{ArgMatches};
 use ndarray::{Array3, Ix3, indices};
@@ -116,18 +117,38 @@ pub fn compute_eigenvalues(file: &hdf5::File, target: &hdf5::Group) -> Result<()
 }
 
 
-pub fn run_caustics(args: &ArgMatches) -> Result<(), Error> {
+pub fn run_eigen(args: &ArgMatches) -> Result<(), Error> {
     let filename = args.value_of("file").unwrap();
     let file = hdf5::File::open_rw(filename)?;
     let scale = args.value_of("scale").map(|s| f64::from_str(s).unwrap());
 
-    let target_name = args.value_of("name").unwrap_or("caustics");
+    let target_name = args.value_of("name").unwrap_or("0");
     let target = file.create_group(target_name)?;
     target.new_attr::<f64>().create("scale")?.write_scalar(&scale.unwrap_or(0.0))?;
 
     compute_hessian(&file, &target, scale)?;
     compute_eigenvalues(&file, &target)?;
 
+    Ok(())
+}
+
+fn time_tag(t: f64) -> String {
+    format!("{:04}", (t * 1000.0).round() as u64)
+}
+
+pub fn run_a2(args: &ArgMatches) -> Result<(), Error> {
+    let filename = args.value_of("file").unwrap();
+    let file = hdf5::File::open_rw(filename)?;
+    let name = args.value_of("name").unwrap_or("0");
+    let group = file.group(name)?;
+    let time = f64::from_str(args.value_of("growing-mode").unwrap())?;
+    let tag = time_tag(time);
+    let target = group.create_group(tag.as_str())?;
+    target.new_attr::<f64>().create("growing-mode")?.write_scalar(&time)?;
+
+    let alpha = group.group("lambda0")?.dataset("eigenvalue")?.read::<f64,Ix3>()?;
+    let mesh = level_set(&alpha.view(), 1.0 / time);
+    mesh.write_hdf5(&target.create_group("lambda0")?)?;
     Ok(())
 }
 // ~\~ end
