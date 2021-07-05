@@ -5,9 +5,10 @@ use crate::error::{Error};
 use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
 use crate::marching_tetrahedra::{Mesh, level_set};
+use crate::stencil;
 
 use clap::{ArgMatches};
-use ndarray::{Array3, Ix3, indices};
+use ndarray::{Array3, ArrayView3, Ix3, indices, Array1, arr1};
 use fftw::types::{Flag, c64};
 use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
@@ -193,6 +194,9 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     let target = group.create_group("bigcaustic")?;
 
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
+    let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
+
+
 //        group.group("lambda0")?.dataset("eigenvalue")?.read()?;
     Ok(())
 }

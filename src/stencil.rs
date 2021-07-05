@@ -1,4 +1,5 @@
-use ndarray::{ArrayView, Array, Ix3, Ix1, Axis, s, indices};
+use ndarray::{ArrayView, ArrayView3, Array, Ix3, Ix1, Axis, s, indices, arr1};
+use crate::numeric::{Vec3};
 
 pub trait Stencil<T, DIn, DOut>
     : Fn (&ArrayView<T, DIn>, DIn) -> Array<T, DOut>
@@ -135,6 +136,31 @@ define_pencil!(pub pencil_3_z, 2, 3);
 define_pencil!(pub pencil_5_x, 0, 5);
 define_pencil!(pub pencil_5_y, 1, 5);
 define_pencil!(pub pencil_5_z, 2, 5);
+
+const FIR: [f64;5] = [1./12., -2./3., 0., 2./3., -1./12.];
+
+pub fn discrete_gradient(f: &ArrayView3<f64>, x: Ix3) -> Vec3
+{
+    let fir = arr1(&FIR);
+    let u = pencil_5_x(f, x).dot(&fir);
+    let v = pencil_5_y(f, x).dot(&fir);
+    let w = pencil_5_z(f, x).dot(&fir);
+    Vec3([u, v, w])
+}
+
+pub fn a3_criterion(l: &ArrayView<f64,Ix3>, e: &ArrayView<Vec3,Ix3>, i: Ix3) -> [f64;8]
+{
+    let s = l.shape();
+    let mut result = [0.0;8];
+    let e_ref = &e[i];
+
+    for (j, k) in indices([2, 2, 2]).into_iter().enumerate() {
+        let other = Ix3((i[0] + k.0) % s[0], (i[1] + k.1) % s[1], (i[2] + k.2) % s[2]);
+        let sign = e_ref.dot(&e[other]).signum();
+        result[j] = sign * discrete_gradient(l, other).dot(&e[other]);
+    }
+    result
+}
 
 #[cfg(test)]
 mod tests {

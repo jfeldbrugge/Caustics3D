@@ -3,7 +3,7 @@ use crate::numeric::{Vec3};
 use crate::stencil;
 use crate::error::{Error};
 
-use ndarray::{Ix3, ArrayView3};
+use ndarray::{Ix3, ArrayView3, indices};
 // use num_traits::identities::{Zero};
 
 use std::fs::{File};
@@ -54,6 +54,32 @@ const CUBE_CELLS: [[usize;4];6] =
     , [ 2, 7, 3, 5 ]
     , [ 2, 3, 1, 5 ] ];
 
+pub trait Oracle {
+    fn grid_shape(&self) -> [usize;3];
+    fn stencil(&self, x: Ix3) -> [f64;8];
+    fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3;
+}
+
+/* fn grid_pos(ix: [usize;3]) -> Vec3 {
+    Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+} */
+
+fn grid_pos(ix: [usize;3]) -> Vec3 {
+    Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+}
+
+impl<'a> Oracle for ArrayView3<'a, f64> {
+    fn grid_shape(&self) -> [usize;3] {
+        let s = self.shape();
+        [s[0], s[1], s[2]]
+    }
+    fn stencil(&self, x: Ix3) -> [f64;8] { stencil::flat_2x2x2(self, x) }
+    fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
+        let loc = (y - self[a]) / (self[b] - self[a]);
+        grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
+    }
+}
+
 fn intersect_tetrahedron(fx: &[f64;8], y: f64, vertices: &[usize;4], triangles: &mut Vec<[Edge;3]>)
 {
     let mut push_triangle = |a1: usize, a2: usize, b1: usize, b2: usize, c1: usize, c2: usize| {
@@ -95,7 +121,7 @@ fn level_set_element(fx: &[f64;8], y: f64) -> Vec<[Edge;3]> {
 
 type ProtoVertex = ([usize;3], [usize;3]);
 
-fn offset_edge_tripple(shape: Ix3, ix: Ix3, et: [Edge;3]) -> [ProtoVertex;3] {
+fn offset_edge_tripple(shape: [usize;3], ix: Ix3, et: [Edge;3]) -> [ProtoVertex;3] {
     let offset = |i: usize| -> [usize;3] {
         [ (ix[0] + ((i & 0x4) >> 2)) % shape[0]
         , (ix[1] + ((i & 0x2) >> 1)) % shape[1]
@@ -109,26 +135,22 @@ fn offset_edge_tripple(shape: Ix3, ix: Ix3, et: [Edge;3]) -> [ProtoVertex;3] {
     result
 }
 
-
-fn grid_pos(ix: [usize;3]) -> Vec3 {
-    Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
-}
-
+/*
 fn intersect_edge(f: &ArrayView3<f64>, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
     let loc = (y - f[a]) / (f[b] - f[a]);
     grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
-}
+}*/
 
-pub fn level_set(f: &ArrayView3<f64>, y: f64) -> Mesh {
+pub fn level_set<O: Oracle>(f: &O, y: f64) -> Mesh {
     use std::collections::BTreeMap;
 
     let mut proto_triangles = Vec::<[ProtoVertex;3]>::new(); // <[ProtoVertex;3]>::new();
 
-    for (ix, _v) in f.indexed_iter() {
+    for ix in indices(f.grid_shape()) {
         let index = Ix3(ix.0, ix.1, ix.2);
-        let fx = stencil::flat_2x2x2(f, index);
+        let fx = f.stencil(index); // stencil::flat_2x2x2(f, index);
         level_set_element(&fx, y).iter().for_each(
-            |e| proto_triangles.push(offset_edge_tripple(f.raw_dim(), index, *e)));
+            |e| proto_triangles.push(offset_edge_tripple(f.grid_shape(), index, *e)));
     }
 
     let mut proto_vertices = BTreeMap::new();
@@ -151,7 +173,7 @@ pub fn level_set(f: &ArrayView3<f64>, y: f64) -> Mesh {
     let mut vertices = Vec::new();
     vertices.resize(proto_vertices.len(), Vec3([0.,0.,0.]));
     for ((a, b), i) in proto_vertices.iter() {
-        vertices[*i] = intersect_edge(f, y, *a, *b);
+        vertices[*i] = f.intersect(y, *a, *b);
     }
 
     Mesh {

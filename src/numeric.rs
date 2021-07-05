@@ -88,6 +88,14 @@ unsafe impl hdf5::H5Type for Vec3 {
     }
 }
 
+impl Vec3 {
+    pub fn dot(&self, other: &Self) -> f64 {
+        let Vec3(a) = self;
+        let Vec3(b) = other;
+        a[0]*b[0] + a[1]*b[1] + a[2]*b[1]
+    }
+}
+
 pub fn tuple3_idx<T>(x: (T, T, T), idx: usize) -> T {
     match idx {
         0 => x.0,
