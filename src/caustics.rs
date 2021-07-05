@@ -12,7 +12,6 @@ use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
 
 use std::str::FromStr;
-use std::ops::Deref;
 
 #[inline]
 fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::Group>
@@ -29,16 +28,18 @@ fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::G
 
 macro_rules! dataset {
     ($home:expr, $name:expr) => {
-        $home.dataset($name)?.read()?
+        { let name: String = $name.into();
+          $home.dataset(name.as_str())?.read()? }
     };
-    ($home:expr,  $name:expr, $($rest:tt),*) => {
+    ($home:expr, $name:expr, $($rest:tt),*) => {
         dataset!($home.group($name)?, $($rest),*)
     };
 }
 
 macro_rules! write_dataset {
     ($array:ident: $type:ty => $home:expr, $name:expr) => {
-        $home.new_dataset::<$type>().shape($array.shape()).create($name)?.write($array.view())?
+        { let name: String = $name.into();
+          $home.new_dataset::<$type>().shape($array.shape()).create(name.as_str())?.write($array.view())? }
     };
     ($array:ident: $type:ty => $home:expr, $name:expr, $($rest:tt),*) => {
         write_dataset!($array: $type => get_or_create_group($home, $name)?, $($rest),*)
