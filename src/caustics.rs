@@ -12,6 +12,38 @@ use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
 
 use std::str::FromStr;
+use std::ops::Deref;
+
+#[inline]
+fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::Group>
+    where /* T: Deref<Target=hdf5::Group>, */
+          S: Into<String>
+{
+    let n: String = name.into();
+    if !parent.member_names()?.contains(&n) {
+        parent.create_group(n.as_str())
+    } else {
+        parent.group(n.as_str())
+    }
+}
+
+macro_rules! dataset {
+    ($home:expr, $name:expr) => {
+        $home.dataset($name)?.read()?
+    };
+    ($home:expr,  $name:expr, $($rest:tt),*) => {
+        dataset!($home.group($name)?, $($rest),*)
+    };
+}
+
+macro_rules! write_dataset {
+    ($array:ident: $type:ty => $home:expr, $name:expr) => {
+        $home.new_dataset::<$type>().shape($array.shape()).create($name)?.write($array.view())?
+    };
+    ($array:ident: $type:ty => $home:expr, $name:expr, $($rest:tt),*) => {
+        write_dataset!($array: $type => get_or_create_group($home, $name)?, $($rest),*)
+    };
+}
 
 fn read_box_properties(file: &hdf5::File) -> Result<BoxProperties, Error> {
     let pars = file.group("parameters")?;
@@ -63,9 +95,9 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
                 hessian_f[idx] = v * c64::new(-ki * kj / size, 0.0);
             }
             ifft.c2r(&mut hessian_f_buffer, &mut real_buffer)?;
-            let name = format!("H{}{}", i, j);
+
             let real_view = ndarray::ArrayViewMut::from_shape([n, n, n], &mut real_buffer)?;
-            target.new_dataset::<f64>().shape([n,n,n]).create(name.as_str())?.write(real_view.view())?;
+            write_dataset!(real_view: f64 => target, format!("H{}{}", i, j));
         }
     }
 
@@ -76,12 +108,12 @@ pub fn compute_eigenvalues(file: &hdf5::File, target: &hdf5::Group) -> Result<()
     let bp = read_box_properties(file)?;
     let n: usize = bp.logical as usize;
 
-    let h00 = target.dataset("H00")?.read::<f64,Ix3>()?;
-    let h01 = target.dataset("H01")?.read::<f64,Ix3>()?;
-    let h02 = target.dataset("H02")?.read::<f64,Ix3>()?;
-    let h11 = target.dataset("H11")?.read::<f64,Ix3>()?;
-    let h12 = target.dataset("H12")?.read::<f64,Ix3>()?;
-    let h22 = target.dataset("H22")?.read::<f64,Ix3>()?;
+    let h00: Array3<f64> = dataset!(target, "H00");
+    let h01: Array3<f64> = dataset!(target, "H01");
+    let h02: Array3<f64> = dataset!(target, "H02");
+    let h11: Array3<f64> = dataset!(target, "H11");
+    let h12: Array3<f64> = dataset!(target, "H12");
+    let h22: Array3<f64> = dataset!(target, "H22");
 
     let mut lambda = (
         Array3::<f64>::zeros([n, n, n]),
@@ -108,9 +140,8 @@ pub fn compute_eigenvalues(file: &hdf5::File, target: &hdf5::Group) -> Result<()
         }
 
         let name = format!("lambda{}", k);
-        let group = target.create_group(name.as_str())?;
-        group.new_dataset::<f64>().shape([n, n, n]).create("eigenvalue")?.write(lambda)?;
-        group.new_dataset::<Vec3>().shape([n, n, n]).create("eigenvector")?.write(ev.view())?;
+        write_dataset!(lambda: f64 => target, &name, "eigenvalue");
+        write_dataset!(ev: Vec3 => target, &name, "eigenvector");
     }
 
     Ok(())
@@ -146,9 +177,21 @@ pub fn run_a2(args: &ArgMatches) -> Result<(), Error> {
     let target = group.create_group(tag.as_str())?;
     target.new_attr::<f64>().create("growing-mode")?.write_scalar(&time)?;
 
-    let alpha = group.group("lambda0")?.dataset("eigenvalue")?.read::<f64,Ix3>()?;
+    let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let mesh = level_set(&alpha.view(), 1.0 / time);
     mesh.write_hdf5(&target.create_group("lambda0")?)?;
+    Ok(())
+}
+
+pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
+    let filename = args.value_of("file").unwrap();
+    let name = args.value_of("name").unwrap_or("0");
+    let file = hdf5::File::open_rw(filename)?;
+    let group = file.group(name)?;
+    let target = group.create_group("bigcaustic")?;
+
+    let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
+//        group.group("lambda0")?.dataset("eigenvalue")?.read()?;
     Ok(())
 }
 // ~\~ end

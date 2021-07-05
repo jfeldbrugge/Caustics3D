@@ -3,8 +3,8 @@ use crate::numeric::{Vec3};
 use crate::stencil;
 use crate::error::{Error};
 
-use ndarray::{Array, ArrayView, Ix1, Ix3, ArrayView3};
-use num_traits::identities::{Zero};
+use ndarray::{Ix3, ArrayView3};
+// use num_traits::identities::{Zero};
 
 use std::fs::{File};
 use std::io::Write;
@@ -53,41 +53,6 @@ const CUBE_CELLS: [[usize;4];6] =
     , [ 2, 6, 7, 5 ]
     , [ 2, 7, 3, 5 ]
     , [ 2, 3, 1, 5 ] ];
-
-/*
-const CUBE_EDGES: [[usize;2];19] =
-    [ /*  0 */ [ 0, 1 ], [ 0, 2 ], [ 0, 4 ], [ 0, 5 ]
-    , /*  4 */ [ 1, 2 ], [ 1, 3 ], [ 1, 5 ]
-    , /*  7 */ [ 2, 3 ], [ 2, 4 ], [ 2, 5 ], [ 2, 6 ], [ 2, 7 ]
-    , /* 12 */ [ 3, 5 ], [ 3, 7 ]
-    , /* 14 */ [ 4, 5 ], [ 4, 6 ]
-    , /* 16 */ [ 5, 6 ], [ 5, 7 ]
-    , /* 18 */ [ 6, 7 ] ];
-
-const CUBE_CELL_EDGES: [[usize;6];6] =
-    [ [ 0,  1,  3,  4,  6,  9 ]
-    , [ 1,  2,  3,  8,  9, 14 ]
-    , [ 8,  9, 10, 14, 15, 16 ]
-    , [ 9, 10, 11, 16, 17, 18 ]
-    , [ 7,  9, 11, 12, 13, 17 ]
-    , [ 4,  5,  6,  7,  9, 12 ] ];
-
-const CUBE_VERTICES: [Vec3;8] =
-    [ Vec3([ 0.0, 0.0, 0.0 ])
-    , Vec3([ 1.0, 0.0, 0.0 ])
-    , Vec3([ 0.0, 1.0, 0.0 ])
-    , Vec3([ 1.0, 1.0, 0.0 ])
-    , Vec3([ 0.0, 0.0, 1.0 ])
-    , Vec3([ 1.0, 0.0, 1.0 ])
-    , Vec3([ 0.0, 1.0, 1.0 ])
-    , Vec3([ 1.0, 1.0, 1.0 ]) ];
-*/
-
-// #[inline]
-// fn intersect_segment(f: &[f64;8], y: f64, a: usize, b: usize) -> Vertex {
-//     let loc = (y - f[a]) / (f[b] - f[a]);
-//     (a, b, CUBE_VERTICES[a] + (CUBE_VERTICES[b] - CUBE_VERTICES[a]) * loc)
-// }
 
 fn intersect_tetrahedron(fx: &[f64;8], y: f64, vertices: &[usize;4], triangles: &mut Vec<[Edge;3]>)
 {
