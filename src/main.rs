@@ -1,3 +1,5 @@
+#![feature(array_map)]
+
 extern crate clap;
 extern crate hdf5;
 extern crate ndarray;
@@ -121,6 +123,18 @@ fn main() -> Result<(), Error> {
                          .short("D")
                          .takes_value(true)
                          .required(true)))
+        .subcommand(SubCommand::with_name("a3")
+                    .about("compute A3 bigcaustic")
+                    .arg(Arg::with_name("file")
+                         .help("HDF5 archive to work on")
+                         .required(true)
+                         .index(1))
+                    .arg(Arg::with_name("name")
+                         .help("output group")
+                         .long("name")
+                         .short("n")
+                         .takes_value(true)
+                         .required(true)))
         .get_matches();
 
     match args.subcommand() {
@@ -128,6 +142,7 @@ fn main() -> Result<(), Error> {
         ("gadget-ics", Some(args)) => gadget_data::run_gadget_ics(args),
         ("eigen",      Some(args)) => caustics::run_eigen(args),
         ("a2",         Some(args)) => caustics::run_a2(args),
+        ("a3",         Some(args)) => caustics::run_a3(args),
         _                          => Ok(())
     }
 }

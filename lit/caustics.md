@@ -1,10 +1,73 @@
 # Caustics
 
-``` {.rust file=src/caustics.rs}
+``` {.rust file=src/caustics/a3.rs}
+use crate::stencil;
+use crate::numeric::{Vec3};
+use crate::marching_tetrahedra;
+
+use ndarray::{arr1, ArrayView3, Ix3, indices, IntoDimension};
+
+const FIR: [f64;5] = [1./12., -2./3., 0., 2./3., -1./12.];
+
+pub fn discrete_gradient<D>(f: &ArrayView3<f64>, x: D) -> Vec3
+    where D: IntoDimension<Dim=Ix3>
+{
+    let fir = arr1(&FIR);
+    let i = x.into_dimension();
+    let u = stencil::pencil_5_x(f, i).dot(&fir);
+    let v = stencil::pencil_5_y(f, i).dot(&fir);
+    let w = stencil::pencil_5_z(f, i).dot(&fir);
+    Vec3([u, v, w])
+}
+
+#[inline]
+fn to_array(i: Ix3) -> [usize;3] {
+    [i[0], i[1], i[2]]
+}
+
+#[inline]
+fn grid_pos(ix: [usize;3]) -> Vec3 {
+    Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+}
+
+pub struct EigenSolution<'a> {
+    pub value: ArrayView3<'a, f64>,
+    pub vector: ArrayView3<'a, Vec3>
+}
+
+impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
+    fn grid_shape(&self) -> [usize;3] {
+        to_array(self.value.raw_dim())
+    }
+
+    fn stencil(&self, x: [usize;3]) -> [f64;8] {
+        let s = self.grid_shape();
+        let mut result = [0.0;8];
+        let e_ref = &self.vector[x];
+
+        for (j, k) in indices([2, 2, 2]).into_iter().enumerate() {
+            let other = [(x[0] + k.0) % s[0], (x[1] + k.1) % s[1], (x[2] + k.2) % s[2]];
+            let sign = e_ref.dot(&self.vector[other]).signum();
+            result[j] = sign * discrete_gradient(&self.value, other).dot(&self.vector[other]);
+        }
+        result
+    }
+
+    fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
+        let sign = self.vector[a].dot(&self.vector[b]).signum();
+        let y_a = discrete_gradient(&self.value, a).dot(&self.vector[a]);
+        let y_b = discrete_gradient(&self.value, b).dot(&self.vector[b]);
+        let loc = (y - y_a) / (y_b - y_a);
+        grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
+    }
+}
+```
+
+``` {.rust file=src/caustics/mod.rs}
 use crate::error::{Error};
 use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
-use crate::marching_tetrahedra::{Mesh, level_set};
+use crate::marching_tetrahedra::{level_set};
 use crate::stencil;
 
 use clap::{ArgMatches};
@@ -14,6 +77,8 @@ use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
 
 use std::str::FromStr;
+
+mod a3;
 
 #[inline]
 fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::Group>
@@ -26,6 +91,15 @@ fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::G
     } else {
         parent.group(n.as_str())
     }
+}
+
+macro_rules! group {
+    ($home:expr, $name:expr) => {
+        get_or_create_group($home, $name)?
+    };
+    ($home:expr, $name:expr, $($rest:tt),*) => {
+        group!(&get_or_create_group($home, $name)?, $($rest),*)
+    };
 }
 
 macro_rules! dataset {
@@ -45,6 +119,16 @@ macro_rules! write_dataset {
     };
     ($array:ident: $type:ty => $home:expr, $name:expr, $($rest:tt),*) => {
         write_dataset!($array: $type => get_or_create_group($home, $name)?, $($rest),*)
+    };
+}
+
+macro_rules! write_attribute {
+    ($type:ty; $value:expr => $home:expr, $name:expr) => {
+        { let name: String = $name.into();
+          $home.new_attr::<$type>().create(name.as_str())?.write_scalar($value)? }
+    };
+    ($type:ty; $value:expr => $home:expr, $name:expr, $($rest:tt),*) => {
+        write_attribute!($type; $value => get_or_create_group($home, $name)?, $($rest),*)
     };
 }
 
@@ -158,7 +242,7 @@ pub fn run_eigen(args: &ArgMatches) -> Result<(), Error> {
 
     let target_name = args.value_of("name").unwrap_or("0");
     let target = file.create_group(target_name)?;
-    target.new_attr::<f64>().create("scale")?.write_scalar(&scale.unwrap_or(0.0))?;
+    write_attribute!(f64; &scale.unwrap_or(0.0) => &file, target_name, "scale");
 
     compute_hessian(&file, &target, scale)?;
     compute_eigenvalues(&file, &target)?;
@@ -178,7 +262,7 @@ pub fn run_a2(args: &ArgMatches) -> Result<(), Error> {
     let time = f64::from_str(args.value_of("growing-mode").unwrap())?;
     let tag = time_tag(time);
     let target = group.create_group(tag.as_str())?;
-    target.new_attr::<f64>().create("growing-mode")?.write_scalar(&time)?;
+    write_attribute!(f64; &time => target, "growing-mode");
 
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let mesh = level_set(&alpha.view(), 1.0 / time);
@@ -187,17 +271,18 @@ pub fn run_a2(args: &ArgMatches) -> Result<(), Error> {
 }
 
 pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
+    use a3::EigenSolution;
+
     let filename = args.value_of("file").unwrap();
     let name = args.value_of("name").unwrap_or("0");
     let file = hdf5::File::open_rw(filename)?;
-    let group = file.group(name)?;
-    let target = group.create_group("bigcaustic")?;
+    let target = group!(&file, name, "a3");
 
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
-
-
-//        group.group("lambda0")?.dataset("eigenvalue")?.read()?;
+    let eigen_solution = EigenSolution { value: alpha.view(), vector: e_alpha.view() };
+    let mesh = level_set(&eigen_solution, 0.0);
+    mesh.write_hdf5(&target)?;
     Ok(())
 }
 ```

@@ -56,7 +56,7 @@ const CUBE_CELLS: [[usize;4];6] =
 
 pub trait Oracle {
     fn grid_shape(&self) -> [usize;3];
-    fn stencil(&self, x: Ix3) -> [f64;8];
+    fn stencil(&self, x: [usize;3]) -> [f64;8];
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3;
 }
 
@@ -73,7 +73,9 @@ impl<'a> Oracle for ArrayView3<'a, f64> {
         let s = self.shape();
         [s[0], s[1], s[2]]
     }
-    fn stencil(&self, x: Ix3) -> [f64;8] { stencil::flat_2x2x2(self, x) }
+    fn stencil(&self, x: [usize;3]) -> [f64;8] { 
+        stencil::flat_2x2x2(self, x)
+    }
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
         let loc = (y - self[a]) / (self[b] - self[a]);
         grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
@@ -121,18 +123,19 @@ fn level_set_element(fx: &[f64;8], y: f64) -> Vec<[Edge;3]> {
 
 type ProtoVertex = ([usize;3], [usize;3]);
 
-fn offset_edge_tripple(shape: [usize;3], ix: Ix3, et: [Edge;3]) -> [ProtoVertex;3] {
+fn offset_edge_tripple(shape: [usize;3], ix: [usize;3], et: [Edge;3]) -> [ProtoVertex;3] {
     let offset = |i: usize| -> [usize;3] {
         [ (ix[0] + ((i & 0x4) >> 2)) % shape[0]
         , (ix[1] + ((i & 0x2) >> 1)) % shape[1]
         , (ix[2] + ((i & 0x1)     )) % shape[2] ]
     };
 
-    let mut result = [([0;3], [0;3]);3];
+    et.map(|e| (offset(e.0), offset(e.1)))
+/*    let mut result = [([0;3], [0;3]);3];
     for k in 0..3 {
         result[k] = (offset(et[k].0), offset(et[k].1));
     }
-    result
+    result */
 }
 
 /*
@@ -147,7 +150,7 @@ pub fn level_set<O: Oracle>(f: &O, y: f64) -> Mesh {
     let mut proto_triangles = Vec::<[ProtoVertex;3]>::new(); // <[ProtoVertex;3]>::new();
 
     for ix in indices(f.grid_shape()) {
-        let index = Ix3(ix.0, ix.1, ix.2);
+        let index = [ix.0, ix.1, ix.2];
         let fx = f.stencil(index); // stencil::flat_2x2x2(f, index);
         level_set_element(&fx, y).iter().for_each(
             |e| proto_triangles.push(offset_edge_tripple(f.grid_shape(), index, *e)));
