@@ -18,12 +18,20 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn write_obj_file(&self, filename: &str) -> Result<(), Error> {
+    pub fn write_obj_file(&self, filename: &str, box_size: f64) -> Result<(), Error> {
         let mut file = File::create(filename)?;
         for Vec3(v) in self.vertices.iter() {
             writeln!(&mut file, "v {} {} {}", v[0], v[1], v[2])?;
         }
-        for t in self.triangles.iter() {
+        'next_triangle: for t in self.triangles.iter() {
+            for k in 0..3 {
+                for j in 0..k {
+                    if (self.vertices[t[k]].clone() - self.vertices[t[j]].clone()).0
+                        .iter().any(|a| (*a).abs() > box_size/2.) {
+                        continue 'next_triangle;
+                    }
+                }
+            }
             writeln!(&mut file, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1)?;
         }
         Ok(())
