@@ -135,7 +135,11 @@ fn main() -> Result<(), Error> {
                          .long("name")
                          .short("n")
                          .takes_value(true)
-                         .required(true)))
+                         .required(true))
+                    .arg(Arg::with_name("obj")
+                         .help("write mesh to obj file")
+                         .long("dump-obj")
+                         .takes_value(true)))
         .get_matches();
 
     match args.subcommand() {

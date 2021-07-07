@@ -212,12 +212,18 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     let filename = args.value_of("file").unwrap();
     let name = args.value_of("name").unwrap_or("0");
     let file = hdf5::File::open_rw(filename)?;
+    let bp = read_box_properties(&file)?;
     let target = group!(&file, name, "a3");
 
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
     let eigen_solution = EigenSolution { value: alpha.view(), vector: e_alpha.view() };
     let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 1.0);
+
+    if let Some(filename) = args.value_of("obj") {
+        mesh.write_obj_file(&filename, bp.logical as f64)?;
+    }
+
     mesh.write_hdf5(&target)?;
     Ok(())
 }
