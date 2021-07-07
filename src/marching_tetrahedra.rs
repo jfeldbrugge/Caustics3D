@@ -58,6 +58,20 @@ pub trait Oracle {
     fn grid_shape(&self) -> [usize;3];
     fn stencil(&self, x: [usize;3]) -> [f64;8];
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3;
+
+    fn interpolate(&self, x: Vec3) -> f64 {
+        let i = x.0.map(|j| j.floor() as usize);
+        let f = x.0.zip(i).map(|(j, k)| j - (k as f64));
+        let s = self.stencil(i);
+          (1. - f[2]) * (1. - f[1]) * (1. - f[0]) * s[0]
+        +       f[2]  * (1. - f[1]) * (1. - f[0]) * s[1]
+        + (1. - f[2]) *       f[1]  * (1. - f[0]) * s[2]
+        +       f[2]  *       f[1]  * (1. - f[0]) * s[3]
+        + (1. - f[2]) * (1. - f[1]) *       f[0]  * s[4]
+        +       f[2]  * (1. - f[1]) *       f[0]  * s[5]
+        + (1. - f[2]) *       f[1]  *       f[0]  * s[6]
+        +       f[2]  *       f[1]  *       f[0]  * s[7]
+    }
 }
 
 /* fn grid_pos(ix: [usize;3]) -> Vec3 {
@@ -185,6 +199,49 @@ pub fn level_set<O: Oracle>(f: &O, y: f64) -> Mesh {
     }
 }
 
+pub fn bound_level_set<O1: Oracle, O2: Oracle>(f: &O1, y: f64, g: &O2, z: f64) -> Mesh {
+    use std::collections::BTreeMap;
+
+    let mut proto_triangles = Vec::<[ProtoVertex;3]>::new(); // <[ProtoVertex;3]>::new();
+
+    for ix in indices(f.grid_shape()) {
+        let index = [ix.0, ix.1, ix.2];
+        let gx = g.stencil(index);
+        if gx.iter().all(|zx| *zx < z) { continue; }
+
+        let fx = f.stencil(index); // stencil::flat_2x2x2(f, index);
+        level_set_element(&fx, y).iter().for_each(
+            |e| proto_triangles.push(offset_edge_tripple(f.grid_shape(), index, *e)));
+    }
+
+    let mut proto_vertices = BTreeMap::new();
+    let mut triangles = Vec::with_capacity(proto_triangles.len());
+    let mut get_index = |edge: ProtoVertex| -> usize {
+        let s = proto_vertices.len();
+        if proto_vertices.contains_key(&edge) {
+            proto_vertices[&edge]
+        } else {
+            proto_vertices.insert(edge, s);
+            s
+        }
+        // proto_vertices.try_insert(edge, s).unwrap_or_else(|e| e.value)
+    };
+
+    for [a, b, c] in proto_triangles {
+        triangles.push([get_index(a), get_index(b), get_index(c)]);
+    }
+
+    let mut vertices = Vec::new();
+    vertices.resize(proto_vertices.len(), Vec3([0.,0.,0.]));
+    for ((a, b), i) in proto_vertices.iter() {
+        vertices[*i] = f.intersect(y, *a, *b);
+    }
+
+    Mesh {
+        triangles: triangles,
+        vertices: vertices
+    }
+}
 
 #[cfg(test)]
 mod tests {

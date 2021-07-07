@@ -1,4 +1,5 @@
 #![feature(array_map)]
+#![feature(array_zip)]
 
 extern crate clap;
 extern crate hdf5;

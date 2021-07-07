@@ -67,7 +67,7 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
 use crate::error::{Error};
 use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
-use crate::marching_tetrahedra::{level_set};
+use crate::marching_tetrahedra::{level_set, bound_level_set};
 use crate::stencil;
 
 use clap::{ArgMatches};
@@ -281,7 +281,7 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
     let eigen_solution = EigenSolution { value: alpha.view(), vector: e_alpha.view() };
-    let mesh = level_set(&eigen_solution, 0.0);
+    let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 1.0);
     mesh.write_hdf5(&target)?;
     Ok(())
 }
