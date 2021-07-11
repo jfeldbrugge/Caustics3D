@@ -75,6 +75,7 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         let y_b = sign * discrete_gradient(&self.value, b).dot(&self.vector[b]);
 
         if y_a * y_b > 0.0 {
+            eprintln!("warning: difficult point between {:?} and {:?}", a, b);
             if y_a.abs() < y_b.abs() {
                 let a_rel = a.map(|i| i as isize);
                 return grid_pos(a_rel);
@@ -99,7 +100,7 @@ use crate::marching_tetrahedra::{level_set, bound_level_set};
 use crate::stencil;
 
 use clap::{ArgMatches};
-use ndarray::{Array3, ArrayView3, Ix3, indices, Array1, arr1};
+use ndarray::{Array3, ArrayView3, Ix3, indices, Array1, arr1, s};
 use fftw::types::{Flag, c64};
 use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
@@ -200,6 +201,7 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
         }
     }
 
+    let vel_data = target.new_dataset::<f64>().shape([n, n, n, 3]).create("v")?;
     for i in 0..3 {
         for j in 0..3 {
             if j < i { continue; }
@@ -214,6 +216,15 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
             let real_view = ndarray::ArrayViewMut::from_shape([n, n, n], &mut real_buffer)?;
             write_dataset!(real_view: f64 => target, format!("H{}{}", i, j));
         }
+
+        let mut hessian_f = ndarray::ArrayViewMut::from_shape([n, n, n / 2 + 1], &mut hessian_f_buffer)?;
+        for (idx, v) in pot_f.indexed_iter() {
+            let ki = bp.freq(tuple3_idx(idx, i));
+            hessian_f[idx] = v * c64::new(0.0, ki / size);
+        }
+        ifft.c2r(&mut hessian_f_buffer, &mut real_buffer)?;
+        let real_view = ndarray::ArrayView::from_shape([n, n, n], &real_buffer)?;
+        vel_data.write_slice(real_view, s![..,..,..,i])?;
     }
 
     Ok(())
