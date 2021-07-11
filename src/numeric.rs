@@ -94,6 +94,12 @@ impl Vec3 {
         let Vec3(b) = other;
         a[0]*b[0] + a[1]*b[1] + a[2]*b[1]
     }
+
+    pub fn normalize(&self) -> Vec3 {
+        let Vec3(a) = self;
+        let x = (a[0]*a[0] + a[1]*a[1] + a[2]*a[2]).sqrt();
+        Vec3([a[0]/x, a[1]/x, a[2]/x])
+    }
 }
 
 pub fn tuple3_idx<T>(x: (T, T, T), idx: usize) -> T {
@@ -166,7 +172,7 @@ impl Sym3 {
         let mut f: [f64; 6] = d.clone();
         f[0] -= q; f[3] -= q; f[5] -= q;
 
-        let p = (self.square_trace() / 6.).sqrt();
+        let p = (Sym3(f).square_trace() / 6.).sqrt();
         for i in 0..6 { f[i] /= p; }
         let phi = (Sym3(f).det() / 2.).acos() / 3.;
 
