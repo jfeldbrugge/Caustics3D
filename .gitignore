@@ -3,6 +3,8 @@ build
 *~
 Test
 *.nb
+*.obj
+
 # Added by cargo
 
 /target
