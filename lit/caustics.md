@@ -251,7 +251,7 @@ pub fn compute_eigenvalues(file: &hdf5::File, target: &hdf5::Group) -> Result<()
 
         for idx in indices([n, n, n]) {
             let h = Sym3([h00[idx], h01[idx], h02[idx], h11[idx], h12[idx], h22[idx]]);
-            ev[idx] = h.eigenvector(lambda[idx], 0).normalize();
+            ev[idx] = h.eigenvector(lambda[idx]).normalize();
         }
 
         let name = format!("lambda{}", k);

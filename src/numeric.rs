@@ -70,6 +70,16 @@ impl std::ops::Mul<f64> for Vec3 {
     }
 }
 
+impl std::ops::Div<f64> for Vec3 {
+    type Output = Vec3;
+    fn div(self, other: f64) -> Self {
+        let Vec3(a) = self;
+        let mut c = [0.0; 3];
+        for i in 0..3 { c[i] = a[i] / other; }
+        Vec3(c)
+    }
+}
+
 impl num_traits::identities::Zero for Vec3 {
     fn zero() -> Self {
         Vec3([0.0, 0.0, 0.0])
@@ -95,10 +105,22 @@ impl Vec3 {
         a[0]*b[0] + a[1]*b[1] + a[2]*b[1]
     }
 
+    pub fn cross(&self, other: &Self) -> Vec3 {
+        let Vec3(a) = self;
+        let Vec3(b) = other;
+        Vec3([a[1] * b[2] - a[2] * b[1],
+              a[2] * b[0] - a[0] * b[2],
+              a[0] * b[1] - a[1] * b[0]])
+    }
+
     pub fn normalize(&self) -> Vec3 {
         let Vec3(a) = self;
         let x = (a[0]*a[0] + a[1]*a[1] + a[2]*a[2]).sqrt();
         Vec3([a[0]/x, a[1]/x, a[2]/x])
+    }
+
+    pub fn sqr(&self) -> f64 {
+        self.dot(&self)
     }
 }
 
@@ -183,19 +205,27 @@ impl Sym3 {
         tuple3_sort((a, b, c))
     }
 
-    pub fn eigenvector(&self, l: f64, case: u8) -> Vec3 {
+    pub fn eigenvector(&self, l: f64) -> Vec3 {
         let Sym3(d) = self;
-        match case {
-            0 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
-                      , (l - d[0]) * d[4] + d[2] * d[1]
-                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
-            1 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
-                      , (l - d[0]) * d[4] + d[3] * d[1]
-                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
-            2 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
-                      , (l - d[0]) * d[4] + d[3] * d[1]
-                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
-            _ => panic!("wrong argument")
+
+        let row0 = Vec3([d[0] - l, d[1], d[2]]);
+        let row1 = Vec3([d[1], d[3] - l, d[4]]);
+        let row2 = Vec3([d[2], d[4], d[5] - l]);
+
+        let r1xr2 = row1.cross(&row2);
+        let r2xr0 = row2.cross(&row0);
+        let r0xr1 = row0.cross(&row1);
+
+        let d12 = r1xr2.sqr();
+        let d20 = r2xr0.sqr();
+        let d01 = r0xr1.sqr();
+
+        if d12 > d20 && d12 > d01 {
+            r1xr2 / d12.sqrt()
+        } else if d20 > d01 {
+            r2xr0 / d20.sqrt()
+        } else {
+            r0xr1 / d01.sqrt()
         }
     }
 }
