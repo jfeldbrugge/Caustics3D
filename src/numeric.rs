@@ -155,15 +155,20 @@ impl Sym3 {
                                  +    d[5]*d[5]
     }
 
+    pub fn det(&self) -> f64 {
+        let Sym3(d) = self;
+        -d[2]*d[2]*d[3] + 2.*d[1]*d[2]*d[4] - d[0]*d[4]*d[4] - d[1]*d[1]*d[5] + d[0]*d[3]*d[5]
+    }
+
     pub fn eigenvalues(&self) -> (f64, f64, f64) {
         let Sym3(d) = self;
         let q = self.trace() / 3.;
         let mut f: [f64; 6] = d.clone();
-        f[0] -= q; f[3] -= q; f[5] -=q;
+        f[0] -= q; f[3] -= q; f[5] -= q;
 
         let p = (self.square_trace() / 6.).sqrt();
         for i in 0..6 { f[i] /= p; }
-        let phi = (Sym3(f).trace() / 2.).acos() / 3.;
+        let phi = (Sym3(f).det() / 2.).acos() / 3.;
 
         let a = q + 2. * p * phi.cos();
         let b = q + 2. * p * (phi + 2. * PI / 3.).cos();
@@ -172,11 +177,20 @@ impl Sym3 {
         tuple3_sort((a, b, c))
     }
 
-    pub fn eigenvector(&self, l: f64) -> Vec3 {
+    pub fn eigenvector(&self, l: f64, case: u8) -> Vec3 {
         let Sym3(d) = self;
-        Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
-             , (l - d[0]) * d[4] + d[3] * d[1]
-             , (l - d[0]) * (l - d[1]) - d[0] * d[0] ])
+        match case {
+            0 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
+                      , (l - d[0]) * d[4] + d[3] * d[1]
+                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
+            1 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
+                      , (l - d[0]) * d[4] + d[3] * d[1]
+                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
+            2 => Vec3([ (l - d[3]) * d[2] + d[4] * d[1]
+                      , (l - d[0]) * d[4] + d[3] * d[1]
+                      , (l - d[0]) * (l - d[1]) - d[0] * d[0] ]),
+            _ => panic!("wrong argument")
+        }
     }
 }
 
