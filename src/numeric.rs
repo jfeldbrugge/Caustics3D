@@ -102,7 +102,7 @@ impl Vec3 {
     pub fn dot(&self, other: &Self) -> f64 {
         let Vec3(a) = self;
         let Vec3(b) = other;
-        a[0]*b[0] + a[1]*b[1] + a[2]*b[1]
+        a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
     }
 
     pub fn cross(&self, other: &Self) -> Vec3 {
@@ -220,7 +220,8 @@ impl Sym3 {
         let d20 = r2xr0.sqr();
         let d01 = r0xr1.sqr();
 
-        if d12 > d20 && d12 > d01 {
+        // eprintln!("{} {} {}", d12, d20, d01);
+        if d12 > d20 && d12 > d01{
             r1xr2 / d12.sqrt()
         } else if d20 > d01 {
             r2xr0 / d20.sqrt()

@@ -74,6 +74,7 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         let y_b = sign * discrete_gradient(&self.value, b).dot(&self.vector[b]);
 
         if y_a * y_b > 0.0 {
+            eprintln!("warning: difficult point between {:?} and {:?}", a, b);
             if y_a.abs() < y_b.abs() {
                 let a_rel = a.map(|i| i as isize);
                 return grid_pos(a_rel);
