@@ -3,10 +3,14 @@ archive := test.hdf5
 
 .PHONY: all clean build
 
-all: a3.log
+all: a2.log a3.log
 
 build:
 	cargo +nightly build
+
+a2.log: eigen.log
+	$(exec) a2 -n s5 -D 1 $(archive) 2> $@
+
 
 a3.log: eigen.log
 	$(exec) a3 -n s5 $(archive) --dump-obj a3.obj 2> $@
