@@ -20,8 +20,8 @@ pub struct Mesh {
 impl Mesh {
     pub fn write_obj_file(&self, filename: &str, box_size: f64) -> Result<(), Error> {
         let mut file = File::create(filename)?;
-        for Vec3(v) in self.vertices.iter() {
-            writeln!(&mut file, "v {} {} {}", v[0], v[1], v[2])?;
+        for v in self.vertices.iter() {
+            writeln!(&mut file, "v {} {} {}", v.0[0], v.0[1], v.0[2])?;
         }
         'next_triangle: for t in self.triangles.iter() {
             for k in 0..3 {
@@ -99,7 +99,12 @@ impl<'a> Oracle for ArrayView3<'a, f64> {
         stencil::flat_2x2x2(self, x)
     }
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
-        let loc = (y - self[a]) / (self[b] - self[a]);
+        let y_a = self[a];
+        let y_b = self[b];
+        assert!((y - y_a) * (y - y_b) < 0.0,
+            "given points should straddle root: {:?} -> {}, {:?} -> {}",
+            a, y_a, b, y_b);
+        let loc = (y - y_a) / (y_b - y_a);
         grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
     }
 }

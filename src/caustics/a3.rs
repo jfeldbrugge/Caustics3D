@@ -25,8 +25,24 @@ fn to_array(i: Ix3) -> [usize;3] {
 }
 
 #[inline]
-fn grid_pos(ix: [usize;3]) -> Vec3 {
+fn grid_pos(ix: [isize;3]) -> Vec3 {
     Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+}
+
+#[inline]
+fn make_rel(a: [usize;3], b: [usize;3], shape: [usize;3]) -> [isize;3] {
+    let mut result: [isize;3] = [0;3];
+    for i in 0..3 {
+        let d = b[i] as isize - a[i] as isize;
+        result[i] = if d < -(shape[i] as isize)/2 {
+            d + shape[i] as isize
+        } else if d > (shape[i] as isize)/2 {
+            d - shape[i] as isize
+        } else {
+            d
+        };
+    }
+    result
 }
 
 pub struct EigenSolution<'a> {
@@ -55,9 +71,21 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
         let sign = self.vector[a].dot(&self.vector[b]).signum();
         let y_a = discrete_gradient(&self.value, a).dot(&self.vector[a]);
-        let y_b = discrete_gradient(&self.value, b).dot(&self.vector[b]);
+        let y_b = sign * discrete_gradient(&self.value, b).dot(&self.vector[b]);
+
+        if y_a * y_b > 0.0 {
+            if y_a.abs() < y_b.abs() {
+                let a_rel = a.map(|i| i as isize);
+                return grid_pos(a_rel);
+            } else {
+                let b_rel = b.map(|i| i as isize);
+                return grid_pos(b_rel);
+            }
+        }
+
         let loc = (y - y_a) / (y_b - y_a);
-        grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
+        let a_rel = a.map(|i| i as isize);
+        grid_pos(a_rel) + grid_pos(make_rel(a, b, self.grid_shape())) * loc
     }
 }
 // ~\~ end
