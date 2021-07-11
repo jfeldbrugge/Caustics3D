@@ -1,9 +1,12 @@
 exec := cargo +nightly run --release --
 archive := test.hdf5
 
-.PHONY: all clean
+.PHONY: all clean build
 
 all: a3.log
+
+build:
+	cargo +nightly build
 
 a3.log: eigen.log
 	$(exec) a3 -n s5 $(archive) --dump-obj a3.obj 2> $@

@@ -86,8 +86,29 @@ pub trait Oracle {
     Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
 } */
 
-fn grid_pos(ix: [usize;3]) -> Vec3 {
+fn ugrid_pos(ix: [usize;3]) -> Vec3 {
     Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+}
+
+#[inline]
+fn grid_pos(ix: [isize;3]) -> Vec3 {
+    Vec3([ix[0] as f64, ix[1] as f64, ix[2] as f64])
+}
+
+#[inline]
+fn make_rel(a: [usize;3], b: [usize;3], shape: [usize;3]) -> [isize;3] {
+    let mut result: [isize;3] = [0;3];
+    for i in 0..3 {
+        let d = b[i] as isize - a[i] as isize;
+        result[i] = if d < -(shape[i] as isize)/2 {
+            d + shape[i] as isize
+        } else if d > (shape[i] as isize)/2 {
+            d - shape[i] as isize
+        } else {
+            d
+        };
+    }
+    result
 }
 
 impl<'a> Oracle for ArrayView3<'a, f64> {
@@ -105,7 +126,7 @@ impl<'a> Oracle for ArrayView3<'a, f64> {
             "given points should straddle root: {:?} -> {}, {:?} -> {}",
             a, y_a, b, y_b);
         let loc = (y - y_a) / (y_b - y_a);
-        grid_pos(a) + (grid_pos(b) - grid_pos(a)) * loc
+        ugrid_pos(a) + grid_pos(make_rel(a, b, self.grid_shape())) * loc
     }
 }
 
