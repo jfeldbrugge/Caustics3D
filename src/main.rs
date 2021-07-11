@@ -8,14 +8,18 @@ extern crate fftw;
 extern crate num_traits;
 
 use clap::{Arg, App, SubCommand, ArgMatches};
+#[macro_use] mod stencil;
+mod grf;
 mod cosmology;
 mod box_properties;
 mod gadget_data;
 mod error;
 mod caustics;
 mod numeric;
-mod stencil;
 mod marching_tetrahedra;
+mod marching_triangles;
+mod tricubic;
+mod mesh;
 
 use cosmology::{Cosmology,EDS_COSMOLOGY,PLANCK_COSMOLOGY,SEC_PER_GYR};
 use error::{Error};

@@ -5,20 +5,7 @@ use crate::stencil;
 use crate::numeric::{Vec3};
 use crate::marching_tetrahedra;
 
-use ndarray::{arr1, ArrayView3, Ix3, indices, IntoDimension};
-
-const FIR: [f64;5] = [1./12., -2./3., 0., 2./3., -1./12.];
-
-pub fn discrete_gradient<D>(f: &ArrayView3<f64>, x: D) -> Vec3
-    where D: IntoDimension<Dim=Ix3>
-{
-    let fir = arr1(&FIR);
-    let i = x.into_dimension();
-    let u = stencil::pencil_5_x(f, i).dot(&fir);
-    let v = stencil::pencil_5_y(f, i).dot(&fir);
-    let w = stencil::pencil_5_z(f, i).dot(&fir);
-    Vec3([u, v, w])
-}
+use ndarray::{ArrayView3, Ix3, indices};
 
 #[inline]
 fn to_array(i: Ix3) -> [usize;3] {
@@ -64,15 +51,15 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         for (j, k) in indices([2, 2, 2]).into_iter().enumerate() {
             let other = [(x[0] + k.0) % s[0], (x[1] + k.1) % s[1], (x[2] + k.2) % s[2]];
             let sign = e_ref.dot(&self.vector[other]).signum();
-            result[j] = sign * discrete_gradient(&self.value, other).dot(&self.vector[other]);
+            result[j] = sign * stencil::discrete_gradient(&self.value, other).dot(&self.vector[other]);
         }
         result
     }
 
     fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
         let sign = self.vector[a].dot(&self.vector[b]).signum();
-        let y_a = discrete_gradient(&self.value, a).dot(&self.vector[a]);
-        let y_b = sign * discrete_gradient(&self.value, b).dot(&self.vector[b]);
+        let y_a = stencil::discrete_gradient(&self.value, a).dot(&self.vector[a]);
+        let y_b = sign * stencil::discrete_gradient(&self.value, b).dot(&self.vector[b]);
 
         if y_a * y_b > 0.0 {
             eprintln!("warning: difficult point between {:?} and {:?}", a, b);
@@ -213,7 +200,7 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
             }
             ifft.c2r(&mut hessian_f_buffer, &mut real_buffer)?;
 
-            let real_view = ndarray::ArrayViewMut::from_shape([n, n, n], &mut real_buffer)?;
+            let real_view = ndarray::ArrayView::from_shape([n, n, n], &real_buffer)?;
             write_dataset!(real_view: f64 => target, format!("H{}{}", i, j));
         }
 
@@ -321,7 +308,7 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
     let eigen_solution = EigenSolution { value: alpha.view(), vector: e_alpha.view() };
-    let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 1.0);
+    let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 0.0);
 
     if let Some(filename) = args.value_of("obj") {
         mesh.write_obj_file(&filename, bp.logical as f64)?;

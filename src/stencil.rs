@@ -1,4 +1,4 @@
-use ndarray::{ArrayView, ArrayView3, Array, Ix3, Ix1, Axis, s, indices, arr1};
+use ndarray::{ArrayView, ArrayView3, Array, Ix3, Ix1, Axis, s, indices, arr1, IntoDimension};
 use crate::numeric::{Vec3};
 
 pub trait Stencil<T, DIn, DOut>
@@ -47,6 +47,18 @@ pub fn flat_2x2x2(x: &ArrayView<f64,Ix3>, i: [usize;3]) -> [f64;8]
         }
         result
     }
+}
+
+pub fn flat_4x4x4(x: &ArrayView<f64,Ix3>, i: [usize;3]) -> [f64;64]
+{
+    let mut result = [0.0; 64];
+    let s = x.shape();
+    for (j, k) in indices([4, 4, 4]).into_iter().enumerate() {
+        result[j] = x[((i[0] + k.0 - 1 + s[0]) % s[0]
+                     , (i[1] + k.1 - 1 + s[1]) % s[1]
+                     , (i[2] + k.2 - 1 + s[2]) % s[2])];
+    }
+    result
 }
 
 /// Stencil of a 3x3x3 area. Could be useful for computing Laplacians
@@ -112,7 +124,9 @@ macro_rules! pencil_collect {
 #[macro_export]
 macro_rules! define_pencil {
     ( $vis:vis $name:ident, $k:tt, $w:expr ) => {
-        $vis fn $name(x: &ArrayView<f64,Ix3>, i: Ix3) -> Array<f64,Ix1> {
+        $vis fn $name<I>(x: &ArrayView<f64,Ix3>, i: I) -> Array<f64,Ix1>
+            where I: IntoDimension<Dim=Ix3> + std::ops::Index<usize,Output=usize>
+        {
             const W: usize = $w;
             const HALF: usize = $w/2;
 
@@ -130,12 +144,83 @@ macro_rules! define_pencil {
     };
 }
 
+#[macro_export]
+macro_rules! define_fpencil {
+    ( $vis:vis $name:ident, $k:tt, $w:expr ) => {
+        $vis fn $name<F, I>(x: F, i: I, s: usize) -> Array<f64,Ix1>
+            where I: IntoDimension<Dim=Ix3> + std::ops::Index<usize,Output=usize>,
+                  F: Fn([usize;3]) -> f64
+        {
+            const W: usize = $w;
+            const HALF: usize = $w/2;
+
+            let mut result = Array::<f64,Ix1>::zeros([W]);
+            let mut idx = [i[0], i[1], i[2]];
+            for (j, v) in result.indexed_iter_mut() {
+                idx[$k] = (i[$k] + j + s - HALF) % s;
+                *v = x(idx);
+            }
+            result
+        }
+    };
+}
+
 define_pencil!(pub pencil_3_x, 0, 3);
 define_pencil!(pub pencil_3_y, 1, 3);
 define_pencil!(pub pencil_3_z, 2, 3);
 define_pencil!(pub pencil_5_x, 0, 5);
 define_pencil!(pub pencil_5_y, 1, 5);
 define_pencil!(pub pencil_5_z, 2, 5);
+define_fpencil!(pub fpencil_5_x, 0, 5);
+define_fpencil!(pub fpencil_5_y, 1, 5);
+define_fpencil!(pub fpencil_5_z, 2, 5);
+
+pub const FIR: [f64;5] = [1./12., -2./3., 0., 2./3., -1./12.];
+
+#[macro_export]
+macro_rules! derivative {
+    ( $f:expr, 0, $idx:expr ) => {
+        stencil::pencil_5_x($f, $idx).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 1, $idx:expr ) => {
+        stencil::pencil_5_y($f, $idx).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 2, $idx:expr ) => {
+        stencil::pencil_5_z($f, $idx).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 0, 0, $idx:expr ) => {
+        stencil::fpencil_5_x(|i| derivative!($f, 0, i), $idx, $f.shape()[0]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 0, 1, $idx:expr ) => {
+        stencil::fpencil_5_x(|i| derivative!($f, 1, i), $idx, $f.shape()[0]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 0, 2, $idx:expr ) => {
+        stencil::fpencil_5_x(|i| derivative!($f, 2, i), $idx, $f.shape()[0]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 1, 1, $idx:expr ) => {
+        stencil::fpencil_5_y(|i| derivative!($f, 1, i), $idx, $f.shape()[1]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 1, 2, $idx:expr ) => {
+        stencil::fpencil_5_y(|i| derivative!($f, 2, i), $idx, $f.shape()[1]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 2, 2, $idx:expr ) => {
+        stencil::fpencil_5_z(|i| derivative!($f, 2, i), $idx, $f.shape()[2]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+    ( $f:expr, 0, 1, 2, $idx:expr ) => {
+        stencil::fpencil_5_z(|i| derivative!($f, 0, 1, i), $idx, $f.shape()[2]).dot(&ndarray::arr1(&stencil::FIR))
+    };
+}
+
+pub fn discrete_gradient<D>(f: &ArrayView3<f64>, x: D) -> Vec3
+    where D: IntoDimension<Dim=Ix3>
+{
+    let fir = arr1(&FIR);
+    let i = x.into_dimension();
+    let u = pencil_5_x(f, i).dot(&fir);
+    let v = pencil_5_y(f, i).dot(&fir);
+    let w = pencil_5_z(f, i).dot(&fir);
+    Vec3([u, v, w])
+}
 
 #[cfg(test)]
 mod tests {

@@ -2,53 +2,12 @@ use crate::stencil::{flat_2x2x2};
 use crate::numeric::{Vec3};
 use crate::stencil;
 use crate::error::{Error};
+use crate::mesh::{Mesh};
 
 use ndarray::{Ix3, ArrayView3, indices};
 // use num_traits::identities::{Zero};
 
-use std::fs::{File};
-use std::io::Write;
-
 type Edge = (usize, usize);
-
-#[derive(Debug)]
-pub struct Mesh {
-    vertices: Vec<Vec3>,
-    triangles: Vec<[usize;3]>
-}
-
-impl Mesh {
-    pub fn write_obj_file(&self, filename: &str, box_size: f64) -> Result<(), Error> {
-        let mut file = File::create(filename)?;
-        for v in self.vertices.iter() {
-            writeln!(&mut file, "v {} {} {}", v.0[0], v.0[1], v.0[2])?;
-        }
-        'next_triangle: for t in self.triangles.iter() {
-            for k in 0..3 {
-                for j in 0..k {
-                    if (self.vertices[t[k]].clone() - self.vertices[t[j]].clone()).0
-                        .iter().any(|a| (*a).abs() > box_size/2.) {
-                        continue 'next_triangle;
-                    }
-                }
-            }
-            writeln!(&mut file, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1)?;
-        }
-        Ok(())
-    }
-
-    pub fn write_hdf5(&self, group: &hdf5::Group) -> Result<(), Error> {
-        group.new_dataset::<Vec3>()
-            .shape([self.vertices.len()])
-            .create("vertices")?
-            .write(&self.vertices)?;
-        group.new_dataset::<[usize;3]>()
-            .shape([self.triangles.len()])
-            .create("triangles")?
-            .write(&self.triangles)?;
-        Ok(())
-    }
-}
 
 /// Decomposition of the cube into six tetrahedra. The
 /// vertices are numbered to their binary coordinates.
@@ -293,9 +252,9 @@ mod tests {
                        [[0., 1., 0.],
                         [1., 2., 1.],
                         [0., 1., 0.]]]);
-        let m = level_set(&f.view(), 3.0);
+        // let m = level_set(&f.view(), 3.0);
         // m.write_obj_file("test.obj");
-        println!("{:?}", m);
+        // println!("{:?}", m);
     }
 }
 

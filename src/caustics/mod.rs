@@ -120,7 +120,7 @@ fn compute_hessian(file: &hdf5::File, target: &hdf5::Group,  scale: Option<f64>)
             }
             ifft.c2r(&mut hessian_f_buffer, &mut real_buffer)?;
 
-            let real_view = ndarray::ArrayViewMut::from_shape([n, n, n], &mut real_buffer)?;
+            let real_view = ndarray::ArrayView::from_shape([n, n, n], &real_buffer)?;
             write_dataset!(real_view: f64 => target, format!("H{}{}", i, j));
         }
 
@@ -228,7 +228,7 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
     let e_alpha: Array3<Vec3> = dataset!(file, name, "lambda0", "eigenvector");
     let eigen_solution = EigenSolution { value: alpha.view(), vector: e_alpha.view() };
-    let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 1.0);
+    let mesh = bound_level_set(&eigen_solution, 0.0, &alpha.view(), 0.0);
 
     if let Some(filename) = args.value_of("obj") {
         mesh.write_obj_file(&filename, bp.logical as f64)?;

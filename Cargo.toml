@@ -13,3 +13,6 @@ hdf5 = { git = "https://github.com/aldanor/hdf5-rust" }
 fftw = "0.7.0"
 assert_approx_eq = "1.1.0"
 GSL = "4"
+rand = "0.8.4"
+rand_distr = "0.4.1"
+
