@@ -1,8 +1,8 @@
 build
 .*.swp
 *~
-
-
+Test
+*.nb
 # Added by cargo
 
 /target
