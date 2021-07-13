@@ -6,6 +6,7 @@ Test
 *.obj
 
 # Added by cargo
+.ipynb_checkpoints
 
 /target
 

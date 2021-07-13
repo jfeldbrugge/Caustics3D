@@ -49,6 +49,31 @@ pub fn flat_2x2x2(x: &ArrayView<f64,Ix3>, i: [usize;3]) -> [f64;8]
     }
 }
 
+pub fn flat_3x3x3(x: &ArrayView<f64,Ix3>, i: [usize;3]) -> [f64;27]
+{
+    let s = x.shape();
+    if i[0] > 0 && i[0] < (s[0] - 1) && 
+       i[1] > 0 && i[1] < (s[1] - 1) &&
+       i[2] > 0 && i[2] < (s[2] - 1)
+    {
+        let mut result = [0.0; 27];
+        x.slice(s![ (i[0]-1) .. (i[0]+2)
+                  , (i[1]-1) .. (i[1]+2)
+                  , (i[2]-1) .. (i[2]+2) ])
+         .iter().enumerate()
+         .for_each(|(j, v)| { result[j] = *v; });
+        result
+    } else {
+        let mut result = [0.0; 27];
+        for (j, k) in indices([3, 3, 3]).into_iter().enumerate() {
+            result[j] = x[((i[0] + k.0 + s[0] - 1) % s[0]
+                         , (i[1] + k.1 + s[1] - 1) % s[1]
+                         , (i[2] + k.2 + s[2] - 1) % s[2])];
+        }
+        result
+    }
+}
+
 pub fn flat_4x4x4(x: &ArrayView<f64,Ix3>, i: [usize;3]) -> [f64;64]
 {
     let mut result = [0.0; 64];
