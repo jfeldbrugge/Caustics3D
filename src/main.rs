@@ -9,6 +9,7 @@ extern crate num_traits;
 
 use clap::{Arg, App, SubCommand, ArgMatches};
 #[macro_use] mod stencil;
+#[macro_use] mod util;
 mod grf;
 mod cosmology;
 mod box_properties;

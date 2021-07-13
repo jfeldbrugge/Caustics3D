@@ -4,6 +4,8 @@ use crate::stencil;
 use crate::numeric::{Vec3};
 use crate::marching_tetrahedra;
 
+use super::hessian::Hessian;
+
 use ndarray::{ArrayView3, Ix3, indices};
 
 #[inline]
@@ -35,6 +37,19 @@ fn make_rel(a: [usize;3], b: [usize;3], shape: [usize;3]) -> [isize;3] {
 pub struct EigenSolution<'a> {
     pub value: ArrayView3<'a, f64>,
     pub vector: ArrayView3<'a, Vec3>
+}
+
+trait A3Condition {
+    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3>;
+}
+
+impl A3Condition for Hessian {
+    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3> {
+        let ma = self.call(a);
+        let mb = self.call(b);
+
+        None
+    }
 }
 
 impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {

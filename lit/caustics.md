@@ -5,6 +5,8 @@ use crate::stencil;
 use crate::numeric::{Vec3};
 use crate::marching_tetrahedra;
 
+use super::hessian::Hessian;
+
 use ndarray::{ArrayView3, Ix3, indices};
 
 #[inline]
@@ -36,6 +38,19 @@ fn make_rel(a: [usize;3], b: [usize;3], shape: [usize;3]) -> [isize;3] {
 pub struct EigenSolution<'a> {
     pub value: ArrayView3<'a, f64>,
     pub vector: ArrayView3<'a, Vec3>
+}
+
+trait A3Condition {
+    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3>;
+}
+
+impl A3Condition for Hessian {
+    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3> {
+        let ma = self.call(a);
+        let mb = self.call(b);
+
+        None
+    }
 }
 
 impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
@@ -85,6 +100,7 @@ use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
 use crate::marching_tetrahedra::{level_set, bound_level_set};
 use crate::stencil;
+use crate::util;
 
 use clap::{ArgMatches};
 use ndarray::{Array3, ArrayView3, Ix3, indices, Array1, arr1, s};
@@ -95,58 +111,7 @@ use fftw::array::{AlignedVec};
 use std::str::FromStr;
 
 mod a3;
-
-#[inline]
-fn get_or_create_group<S>(parent: &hdf5::Group, name: S) -> hdf5::Result<hdf5::Group>
-    where /* T: Deref<Target=hdf5::Group>, */
-          S: Into<String>
-{
-    let n: String = name.into();
-    if !parent.member_names()?.contains(&n) {
-        parent.create_group(n.as_str())
-    } else {
-        parent.group(n.as_str())
-    }
-}
-
-macro_rules! group {
-    ($home:expr, $name:expr) => {
-        get_or_create_group($home, $name)?
-    };
-    ($home:expr, $name:expr, $($rest:tt),*) => {
-        group!(&get_or_create_group($home, $name)?, $($rest),*)
-    };
-}
-
-macro_rules! dataset {
-    ($home:expr, $name:expr) => {
-        { let name: String = $name.into();
-          $home.dataset(name.as_str())?.read()? }
-    };
-    ($home:expr, $name:expr, $($rest:tt),*) => {
-        dataset!($home.group($name)?, $($rest),*)
-    };
-}
-
-macro_rules! write_dataset {
-    ($array:ident: $type:ty => $home:expr, $name:expr) => {
-        { let name: String = $name.into();
-          $home.new_dataset::<$type>().shape($array.shape()).create(name.as_str())?.write($array.view())? }
-    };
-    ($array:ident: $type:ty => $home:expr, $name:expr, $($rest:tt),*) => {
-        write_dataset!($array: $type => get_or_create_group($home, $name)?, $($rest),*)
-    };
-}
-
-macro_rules! write_attribute {
-    ($type:ty; $value:expr => $home:expr, $name:expr) => {
-        { let name: String = $name.into();
-          $home.new_attr::<$type>().create(name.as_str())?.write_scalar($value)? }
-    };
-    ($type:ty; $value:expr => $home:expr, $name:expr, $($rest:tt),*) => {
-        write_attribute!($type; $value => get_or_create_group($home, $name)?, $($rest),*)
-    };
-}
+mod hessian;
 
 fn read_box_properties(file: &hdf5::File) -> Result<BoxProperties, Error> {
     let pars = file.group("parameters")?;
