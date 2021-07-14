@@ -4,6 +4,8 @@ build
 Test
 *.nb
 *.obj
+*.aux
+*.log
 
 # Added by cargo
 .ipynb_checkpoints

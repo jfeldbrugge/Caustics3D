@@ -1,0 +1,130 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{Notes on derivatives of eigenvalue and eigenvector fields}
+\author{Job and Johan}
+\date{June 2021}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{amsmath, bm}
+\usepackage{a4wide}
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Caustic conditions}
+Notation: $\bm{v}=(v_1,v_2)$ in $2$D and $\bm{v}=(v_1,v_2,v_3)$, and the derivatives $\partial_i = \frac{\partial}{\partial q_i}$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Cusp $A_3$}
+We study the identiy
+\begin{align}
+0
+&= \bm{v} \cdot \nabla \lambda\\
+&= v_i \partial_i \lambda
+\end{align}
+Using the identity for the first order derivative of the eigenvalue field, we obtain 
+\begin{align}
+0= \bm{v}^T  (v_i \partial_i H)\bm{v}
+\end{align}
+where $v_i \partial_i H$ is the partial derivative of the deformation tensor in the direction of the eigenvector field $\bm{v}$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Swallowtail $A_4$}
+We study the identiy
+\begin{align}
+0
+&= \bm{v} \cdot \nabla (\bm{v} \cdot \nabla \lambda)\\
+&= v_j \partial_j(v_i \partial_i \lambda)\\
+&= v_j \partial_j v_i \partial_i \lambda + v_i v_j   \partial_i \partial_j \lambda.
+\end{align}
+We can interpret the first term $v_j \partial_j v_i \partial_i \lambda $ as follows. Firstly, we evaluate the partial derivative of $\bm{v}$ in the direction $\bm{v}$. Secondly, we evaluate the directional derivative of $\lambda$ in this direction. Both the first order derivative of $\bm{v}$ and $\lambda$ can be written in terms of first order derivatives of the deformation field $H$. The second term is simply the second order derivative of $\lambda$ in the direction $\bm{v}$. We can express this one as a second order derivative of the deformation field.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Butterfly $A_5$}
+We study the identiy
+\begin{align}
+0
+&=\bm{v}\cdot \nabla( \bm{v} \cdot \nabla (\bm{v} \cdot \nabla \lambda))\\
+&= v_k \partial_k(v_j \partial_j(v_i \partial_i \lambda))\\
+&= v_k \partial_k(v_j \partial_j v_i \partial_i \lambda + v_j  v_i \partial_i \partial_j \lambda)\\
+&= 
+v_k (\partial_k v_j \partial_j v_i + v_j \partial_j\partial_k v_i)\partial_i \lambda + 
++ 3 v_i v_k \partial_k v_j \partial_i \partial_j \lambda
++ v_i v_j v_k \partial_i \partial_j \partial_k \lambda.
+\end{align}
+It is again possible to write the first, second, and third order derivatives of the eigenvalue and eigenvector fields in terms of first, second and third order derivatives of the deformation field. I still need to evaluate the second order derivative of the eigenvector field and the third order derivative of the eigenvalue field.
+
+
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Derivatives}
+Consider the eigenvalue $\lambda$ and eigenvector fields $\bm{v}$ of the deformation field $H$ satisfying the equation
+\begin{align}
+H \bm{v} = \lambda \bm{v},
+\end{align}
+with the normalization $\bm{v}^T\bm{v}=1$. When the eigenvalue fields are simple, the eigenvalue and eigenvector fields are smooth. Interestingly, we can write the derivatives of the eigenvalue and eigenvector fields in terms of derivatives of the matrix field $H$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{First order derivative of the eigenvalue field}
+Upon differentiating the definition of the eigenvalue and eigenvector fields, we obtain the identity 
+\begin{align}
+\partial_i H \bm{v} + H \partial_i \bm{v} = \partial_i \lambda \bm{v} + \lambda \partial_i \bm{v}.
+\end{align}
+If we multiply this equation with $\bm{v}^T$ from the left, we obtain the identity
+\begin{align}
+\bm{v}^T\partial_i H \bm{v} + \bm{v}^TH \partial_i \bm{v} = \partial_i \lambda \bm{v}^T\bm{v} + \lambda \bm{v}^T \partial_i \bm{v}
+\end{align}
+which simplifies to
+\begin{align}
+\partial_i \lambda = \bm{v}^T\partial_i H \bm{v} 
+\end{align}
+using the condition $\bm{v}^T H = \lambda \bm{v}^T$ and $\bm{v}^T\bm{v}=1$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{First order derivative of the eigenvector field}
+Upon differentiating the definition of the eigenvalue and eigenvector fields, we obtain the identity 
+\begin{align}
+\partial_i H \bm{v} + H \partial_i \bm{v} = \partial_i \lambda \bm{v} + \lambda \partial_i \bm{v}.
+\end{align}
+We can rearange this identity to 
+\begin{align}
+(\lambda I - H) \partial_i \bm{v} = (\partial_i H - \partial_i \lambda )\bm{v}.
+\end{align}
+In order to obtain an expression for $\partial_i \bm{v}$, we would like to invert $\lambda I - H$. However, this matrix is by construction singular. We for this reason mutiply from the left by the Moore-Penrose inverse defined by
+\begin{align}
+A^+ = (A^T A)^{-1}A^T
+\end{align}
+assuming $A^T A$ is invertible. This gives
+\begin{align}
+\partial_i \bm{v} = (\lambda I - H)^+ \partial_i H \bm{v}
+\end{align}
+since $(\lambda I - H)^+ \bm{v}=0$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Second order derivative of the eigenvalue field}
+Upon differentiating the definition of the eigenvalue and eigenvector fields twice, we obtain the identity 
+\begin{align}
+\partial_i \partial_j H \bm{v} + \partial_i H \partial_j \bm{v} + \partial_j H \partial_i \bm{v} + H \partial_i \partial_j \bm{v}
+= \partial_i \partial_j \lambda \bm{v} + \partial_i \lambda \partial_j \bm{v}+ \partial_j \lambda \partial_i \bm{v} + \lambda \partial_i \partial_j \bm{v}.
+\end{align}
+Again, after multiplying this equation with $\bm{v}^T$ from the left, we obtain
+\begin{align}
+\partial_i \partial_j \lambda 
+=
+\bm{v}^T\partial_i \partial_j H \bm{v} + \bm{v}^T (\partial_i H \partial_j \bm{v} + \partial_j H \partial_i \bm{v} ),
+\end{align}
+since $\bm{v}^T\bm{v}=1$, $\bm{v}^T \partial_i \bm{v}=0$, and $\bm{v}^TH=\lambda \bm{v}^T$. Note that the second term is a simple symmetrization over the indices $i$ and $j$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Second order derivative of the eigenvector field}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Thrid order derivative of the eigenvalue field}
+
+\end{document}
