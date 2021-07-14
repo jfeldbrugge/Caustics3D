@@ -37,6 +37,15 @@ impl Hessian {
         Sym3(m)
     }
 
+    pub fn gradient(&self, x: Vec3) -> [Sym3;3] {
+        let mut result: [Sym3;3] = Default::default();
+        for k in 0..6 {
+            let dh = self.data[k].gradient(x.clone());
+            for i in 0..3 { result[i].0[k] = dh.0[i]; }
+        }
+        result
+    }
+
     pub fn eigen_system(&self, x: Vec3, k: usize) -> (f64, Vec3) {
         let m = self.call(x);
         let (a, b, c) = m.eigenvalues();

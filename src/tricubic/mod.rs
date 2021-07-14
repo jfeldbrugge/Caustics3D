@@ -134,17 +134,43 @@ impl<S: Data + RawData<Elem=f64>, C: CoefficientFn> Tricubic<S, C> {
 
         let b = cache.get_mut(&i).unwrap();
         let mut result: f64 = 0.0;
-        let i = (k + 1) % 3;
-        let j = (k + 2) % 3;
+        let l = (k + 1) % 3;
+        let m = (k + 2) % 3;
         for j in 0..64 {
             let dx = [(j >> 4) & 3, (j >> 2) & 3, j & 3];
             if dx[k] == 0 { continue; }
             result += b[j] * (dx[k] as f64)
-                   * f[dx[i]].powi(dx[i] as i32)
-                   * f[dx[j]].powi(dx[j] as i32)
-                   * f[dx[k]].powi(dx[k] as i32 - 1);
+                   * f[l].powi(dx[l] as i32)
+                   * f[m].powi(dx[m] as i32)
+                   * f[k].powi(dx[k] as i32 - 1);
         }
         result
+    }
+
+    pub fn gradient(&self, x: Vec3) -> Vec3 {
+        let mut cache = self.cache.borrow_mut();
+        let i = x.0.map(|j| j.floor() as usize);
+        let f = x.0.zip(i).map(|(j, k)| j - (k as f64));
+
+        if !cache.contains_key(&i) {
+            cache.insert(i, C::coefficients(&self.array.view(), i));
+        }
+
+        let b = cache.get_mut(&i).unwrap();
+        let mut result = [0.0;3];
+        for k in 0..3 {
+            let l = (k + 1) % 3;
+            let m = (k + 2) % 3;
+            for j in 0..64 {
+                let dx = [(j >> 4) & 3, (j >> 2) & 3, j & 3];
+                if dx[k] == 0 { continue; }
+                result[k] += b[j] * (dx[k] as f64)
+                          * f[l].powi(dx[l] as i32)
+                          * f[m].powi(dx[m] as i32)
+                          * f[k].powi(dx[k] as i32 - 1);
+            }
+        }
+        Vec3(result)
     }
 }
 
@@ -171,11 +197,21 @@ mod tests {
             write!(&mut file, "{} ", t.f(x)).unwrap();
         }
         write!(&mut file, "\n").unwrap();
+        for i in indices([64,64,64]).into_iter() {
+            let x = Vec3([i.0 as f64 / 8., i.1 as f64 / 8., i.2 as f64 / 8.]);
+            write!(&mut file, "{} ", t.df(0, x)).unwrap();
+        }
+        write!(&mut file, "\n").unwrap();
 
         let t = Tricubic::<ViewRepr<&f64>, SecondOrder>::new(f.view(), 256);
         for i in indices([64,64,64]).into_iter() {
             let x = Vec3([i.0 as f64 / 8., i.1 as f64 / 8., i.2 as f64 / 8.]);
             write!(&mut file, "{} ", t.f(x)).unwrap();
+        }
+        write!(&mut file, "\n").unwrap();
+        for i in indices([64,64,64]).into_iter() {
+            let x = Vec3([i.0 as f64 / 8., i.1 as f64 / 8., i.2 as f64 / 8.]);
+            write!(&mut file, "{} ", t.df(0, x)).unwrap();
         }
         write!(&mut file, "\n").unwrap();
 

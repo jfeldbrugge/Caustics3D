@@ -1,7 +1,7 @@
 // ~\~ language=Rust filename=src/caustics/a3.rs
 // ~\~ begin <<lit/caustics.md|src/caustics/a3.rs>>[0]
 use crate::stencil;
-use crate::numeric::{Vec3};
+use crate::numeric::{Sym3, Vec3, tuple3_idx};
 use crate::marching_tetrahedra;
 
 use super::hessian::Hessian;
@@ -40,15 +40,33 @@ pub struct EigenSolution<'a> {
 }
 
 trait A3Condition {
+    fn a3_info(&self, k: usize, a: Vec3) -> (Vec3, Vec3);
     fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3>;
 }
 
 impl A3Condition for Hessian {
-    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3> {
-        let ma = self.call(a);
-        let mb = self.call(b);
+    fn a3_info(&self, k: usize, a: Vec3) -> (Vec3, Vec3) {
+        let ma = self.call(a.clone());
+        let da = self.gradient(a.clone());
+        let la = tuple3_idx(ma.eigenvalues(), k);
+        let va = ma.eigenvector(la);
+        let mut ga = Vec3([0.0;3]);
+        for i in 0..3 { ga.0[i] = va.dot(&(da[i].mul(va.clone()))); }
+        (va, ga)
+    }
 
-        None
+    fn find_a3(&self, k: usize, a: Vec3, b: Vec3) -> Option<Vec3> {
+        let (va, ga) = self.a3_info(k, a.clone());
+        let (vb, gb) = self.a3_info(k, b.clone());
+        let sign = va.dot(&vb).signum();
+        let ya = va.dot(&ga);
+        let yb = sign * vb.dot(&gb);
+        if ya > 0. && yb > 0. || ya < 0. && yb < 0. {
+            None
+        } else {
+            let loc = ya / (ya - yb);
+            Some(a.clone() + (b - a) * loc)
+        }
     }
 }
 

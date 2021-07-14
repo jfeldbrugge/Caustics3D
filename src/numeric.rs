@@ -19,9 +19,9 @@ impl<A: num_traits::Num + Ord + Copy> Modulo for A {
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Default)]
 pub struct Vec3 (pub [f64; 3]);
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Default)]
 pub struct Sym3 (pub [f64; 6]);
 
 impl std::ops::Index<(u8, u8)> for Sym3 {
@@ -186,6 +186,14 @@ impl Sym3 {
     pub fn det(&self) -> f64 {
         let Sym3(d) = self;
         -d[2]*d[2]*d[3] + 2.*d[1]*d[2]*d[4] - d[0]*d[4]*d[4] - d[1]*d[1]*d[5] + d[0]*d[3]*d[5]
+    }
+
+    pub fn mul(&self, other: Vec3) -> Vec3 {
+        let Vec3(v) = other;
+        let Sym3(m) = self;
+        Vec3([v[0]*m[0]+v[1]*m[1]+v[2]*m[2]
+             ,v[0]*m[1]+v[1]*m[3]+v[2]*m[4]
+             ,v[0]*m[2]+v[1]*m[4]+v[2]*m[5]])
     }
 
     pub fn eigenvalues(&self) -> (f64, f64, f64) {
