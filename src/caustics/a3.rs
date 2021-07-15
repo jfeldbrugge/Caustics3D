@@ -1,7 +1,7 @@
 // ~\~ language=Rust filename=src/caustics/a3.rs
 // ~\~ begin <<lit/caustics.md|src/caustics/a3.rs>>[0]
 use crate::stencil;
-use crate::numeric::{Sym3, Vec3, tuple3_idx};
+use crate::numeric::{Vec3, tuple3_idx};
 use crate::marching_tetrahedra;
 
 use super::hessian::Hessian;
@@ -71,6 +71,8 @@ impl A3Condition for Hessian {
 }
 
 impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
+    type Elem = f64;
+
     fn grid_shape(&self) -> [usize;3] {
         to_array(self.value.raw_dim())
     }
@@ -88,7 +90,7 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         result
     }
 
-    fn intersect(&self, y: f64, a: [usize;3], b: [usize;3]) -> Vec3 {
+    fn intersect(&self, a: [usize;3], b: [usize;3]) -> Option<Vec3> {
         let sign = self.vector[a].dot(&self.vector[b]).signum();
         let y_a = stencil::discrete_gradient(&self.value, a).dot(&self.vector[a]);
         let y_b = sign * stencil::discrete_gradient(&self.value, b).dot(&self.vector[b]);
@@ -97,16 +99,16 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
             eprintln!("warning: difficult point between {:?} and {:?}", a, b);
             if y_a.abs() < y_b.abs() {
                 let a_rel = a.map(|i| i as isize);
-                return grid_pos(a_rel);
+                return Some(grid_pos(a_rel));
             } else {
                 let b_rel = b.map(|i| i as isize);
-                return grid_pos(b_rel);
+                return Some(grid_pos(b_rel));
             }
         }
 
-        let loc = (y - y_a) / (y_b - y_a);
+        let loc = y_a / (y_a - y_b);
         let a_rel = a.map(|i| i as isize);
-        grid_pos(a_rel) + grid_pos(make_rel(a, b, self.grid_shape())) * loc
+        Some(grid_pos(a_rel) + grid_pos(make_rel(a, b, self.grid_shape())) * loc)
     }
 }
 // ~\~ end
