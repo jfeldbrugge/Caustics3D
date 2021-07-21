@@ -8,7 +8,8 @@ use crate::mesh::{Mesh};
 use ndarray::{Ix3, indices, Data, RawData, ArrayBase};
 
 // ~\~ begin <<lit/marching-tetrahedra.md|marching-tetrahedra-types>>[0]
-type ProtoVertex = ([usize;3], [usize;3]);
+type Loc = [usize;3]
+type ProtoVertex = (Loc, Loc);
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|marching-tetrahedra-utils>>[0]
 fn offset_voxel_edge(shape: [usize;3], ix: [usize;3], et: [VoxelEdge;3]) -> [ProtoVertex;3] {
@@ -68,10 +69,11 @@ pub trait Oracle {
 }
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|manifold-trait>>[0]
-pub trait OrientableManifold: Oracle {
-    fn point_inside(&self, x: Self::Elem) -> bool;
+pub trait Manifold: Oracle where Self::Elem: Copy {
+    fn point_inside(&self, x: Self::Elem, level: Self::Elem) -> bool;
     // ~\~ begin <<lit/marching-tetrahedra.md|manifold-methods>>[0]
-    fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], vertices: &[usize;4], triangles: &mut Vec<[VoxelEdge;3]>)
+    fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], level: Self::Elem,
+                             vertices: &[usize;4], triangles: &mut Vec<[VoxelEdge;3]>)
     {
         let mut push_triangle = |a1: usize, a2: usize, b1: usize, b2: usize, c1: usize, c2: usize| {
             triangles.push([ (vertices[a1], vertices[a2])
@@ -81,10 +83,10 @@ pub trait OrientableManifold: Oracle {
 
         let mut case: u8 = 0x00;
 
-        if self.point_inside(fx[vertices[0]]) { case |= 0x01; }
-        if self.point_inside(fx[vertices[1]]) { case |= 0x02; }
-        if self.point_inside(fx[vertices[2]]) { case |= 0x04; }
-        if self.point_inside(fx[vertices[3]]) { case |= 0x08; }
+        if self.point_inside(fx[vertices[0]], level) { case |= 0x01; }
+        if self.point_inside(fx[vertices[1]], level) { case |= 0x02; }
+        if self.point_inside(fx[vertices[2]], level) { case |= 0x04; }
+        if self.point_inside(fx[vertices[3]], level) { case |= 0x08; }
 
         match case {
             0x00 | 0x0F => {},
@@ -102,16 +104,16 @@ pub trait OrientableManifold: Oracle {
         }
     }
 
-    fn intersect_voxel(&self, fx: &[Self::Elem;8]) -> Vec<[VoxelEdge;3]> {
+    fn intersect_voxel(&self, fx: &[Self::Elem;8], level: Self::Elem) -> Vec<[VoxelEdge;3]> {
         let mut triangles = Vec::<[VoxelEdge;3]>::new();
         for tet in CUBE_CELLS {
-            self.intersect_tetrahedron(fx, &tet, &mut triangles);
+            self.intersect_tetrahedron(fx, level, &tet, &mut triangles);
         }
         triangles
     }
     // ~\~ end
     // ~\~ begin <<lit/marching-tetrahedra.md|level-set>>[0]
-    fn level_set(&self) -> Mesh {
+    fn level_set(&self, level: Self::Elem) -> Mesh {
         use std::collections::BTreeMap;
         // ~\~ begin <<lit/marching-tetrahedra.md|level-set-collect>>[0]
         let mut proto_triangles = Vec::<[ProtoVertex;3]>::new();
@@ -119,7 +121,7 @@ pub trait OrientableManifold: Oracle {
         for ix in indices(self.grid_shape()) {
             let index = [ix.0, ix.1, ix.2];
             let fx = self.stencil(index);
-            self.intersect_voxel(&fx).iter().for_each(
+            self.intersect_voxel(&fx, level).iter().for_each(
                 |e| proto_triangles.push(offset_voxel_edge(self.grid_shape(), index, *e)));
         }
         // ~\~ end
@@ -157,6 +159,47 @@ pub trait OrientableManifold: Oracle {
 }
 // ~\~ end
 
+// ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-types>>[0]
+enum EdgeCase {
+    Empty,
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[0]
+    Single((Loc, Loc), Loc, Loc),  // Could be ignored
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[1]
+    Wedge((Loc, Loc, Loc), Loc),       // Could be ignored
+    Chopsticks((Loc, Loc), (Loc, Loc)),  // Could be ignored
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[2]
+    Tripod(Loc, (Loc, Loc, Loc)),        // OK
+    Zigzag(Loc, Loc, Loc, Loc),          // Special but possible
+    Triangle((Loc, Loc, Loc), Loc),      // Highly problematic
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[3]
+    Ring(Loc, Loc, Loc, Loc),            // OK
+    Sundial((Loc, Loc, Loc), Loc),       // Tripod + confusion
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[4]
+    Flap((Loc, Loc), Loc, Loc),          // Ring + confusion
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|edge-cases>>[5]
+    Crazy(Loc, Loc, Loc, Loc)
+    // ~\~ end
+}
+// ~\~ end
+// ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-trait>>[0]
+trait NonManifold: Oracle where Self::Elem: Clone {
+    fn edge_intersects(&self, a: [usize;3], b: [usize;3]) -> bool;
+    // ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-methods>>[0]
+    fn intersect_tetrahedron(&self, fx: &[Self::Elem;8],
+                             vertices: &[usize;4],
+                             triangles: &mut Vec<[VoxelEdge;3]>)
+    // ~\~ end
+    // ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-methods>>[1]
+
+    // ~\~ end
+}
+// ~\~ end
+
 // ~\~ begin <<lit/marching-tetrahedra.md|array-oracle>>[0]
 impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
     type Elem = f64;
@@ -181,9 +224,9 @@ impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
 }
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|array-oracle>>[1]
-impl<S: Data + RawData<Elem=f64>> OrientableManifold for ArrayBase<S, Ix3> {
-    fn point_inside(&self, y: f64) -> bool {
-        y < 0.0
+impl<S: Data + RawData<Elem=f64>> Manifold for ArrayBase<S, Ix3> {
+    fn point_inside(&self, y: f64, level: f64) -> bool {
+        y < level
     }
 }
 // ~\~ end

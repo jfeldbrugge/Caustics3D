@@ -3,12 +3,11 @@
 use crate::error::{Error};
 use crate::box_properties::{BoxProperties};
 use crate::numeric::{Vec3, Sym3, tuple3_idx};
-use crate::marching_tetrahedra::{level_set, bound_level_set};
-use crate::stencil;
+use crate::marching_tetrahedra::{Manifold};
 use crate::util;
 
 use clap::{ArgMatches};
-use ndarray::{Array3, ArrayView3, Ix3, indices, Array1, arr1, s};
+use ndarray::{Array3, Ix3, indices, s};
 use fftw::types::{Flag, c64};
 use fftw::plan::{R2CPlan, R2CPlan64, C2RPlan, C2RPlan64};
 use fftw::array::{AlignedVec};
@@ -161,11 +160,12 @@ pub fn run_a2(args: &ArgMatches) -> Result<(), Error> {
     write_attribute!(f64; &time => target, "growing-mode");
 
     let alpha: Array3<f64> = dataset!(file, name, "lambda0", "eigenvalue");
-    let mesh = level_set(&alpha.view(), 1.0 / time);
+    let mesh = alpha.level_set(1.0 / time);
     mesh.write_hdf5(&target.create_group("lambda0")?)?;
     Ok(())
 }
 
+/*
 pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
     use a3::EigenSolution;
 
@@ -186,5 +186,5 @@ pub fn run_a3(args: &ArgMatches) -> Result<(), Error> {
 
     mesh.write_hdf5(&target)?;
     Ok(())
-}
+} */
 // ~\~ end

@@ -15,9 +15,11 @@ The oracle provides a grid shape, a way of extracting a voxel (also known as **s
 
 If we are looking at an orientable manifold (essentially that means: no edges and a well defined inside/outside), all the information we need is wether a point lies *inside* or *outside*.
 
+> We call this trait `Manifold`, though I'm not sure if it is possible to define something for non-orientable manifolds: to compute the surface of, say a Klein bottle implicitely, is that even possible within this `Oracle` architecture? We would need a stratified array as input, the stencil returning a tuple of floats (one for each stratum), but `intersect` would need to be fed the stratum as an extra argument. In each stratum the surface would no longer be manifold, since there are edges where the surface moves between strata.
+
 ``` {.rust #manifold-trait}
-pub trait OrientableManifold: Oracle {
-    fn point_inside(&self, x: Self::Elem) -> bool;
+pub trait Manifold: Oracle where Self::Elem: Copy {
+    fn point_inside(&self, x: Self::Elem, level: Self::Elem) -> bool;
     <<manifold-methods>>
     <<level-set>>
 }
@@ -37,10 +39,10 @@ const CUBE_CELLS: [[usize;4];6] =
     , [ 2, 3, 1, 5 ] ];
 ```
 
-Now for the algorithm, it is subdivided in a collection, combination and computation phase.
+Now for the algorithm, it is subdivided in a collection, combination and computation phase. From architectural point of view, it is not strictly needed to have the `level` as an argument to `level_set`; we could imagine the implementation of `point_inside` taking care of that. We have chosen this interface here to allow for the all to common use case of finding a level set of an `Array3<f64>` dataset. By keeping `level` outside the closure we can implement `Manifold` directly on the `Array3` type.
 
 ``` {.rust #level-set}
-fn level_set(&self) -> Mesh {
+fn level_set(&self, level: Self::Elem) -> Mesh {
     use std::collections::BTreeMap;
     <<level-set-collect>>
     <<level-set-combine>>
@@ -51,7 +53,8 @@ fn level_set(&self) -> Mesh {
 First we scan each voxel for any intersections. We don't yet compute the actual location of the triangles, just the locations in the grid where there must be a triangle. Each proto-triangle consists of three proto-vertices, where a proto-vertex consists of two neighbouring grid points of which we know one is inside and the other outside. These proto-triangles can be found independently from each other.
 
 ``` {.rust #marching-tetrahedra-types}
-type ProtoVertex = ([usize;3], [usize;3]);
+type Loc = [usize;3]
+type ProtoVertex = (Loc, Loc);
 ```
 
 ``` {.rust #level-set-collect}
@@ -60,7 +63,7 @@ let mut proto_triangles = Vec::<[ProtoVertex;3]>::new();
 for ix in indices(self.grid_shape()) {
     let index = [ix.0, ix.1, ix.2];
     let fx = self.stencil(index);
-    self.intersect_voxel(&fx).iter().for_each(
+    self.intersect_voxel(&fx, level).iter().for_each(
         |e| proto_triangles.push(offset_voxel_edge(self.grid_shape(), index, *e)));
 }
 ```
@@ -82,7 +85,8 @@ fn offset_voxel_edge(shape: [usize;3], ix: [usize;3], et: [VoxelEdge;3]) -> [Pro
 Within the voxel we compute the traditional **marching tetrahedra** algorithm. Each vertex of the tetrahedron is checkout for inside/outside-ness, giving a number between 0 and 15. Depending on this pattern we can identify eight different cases, not looking at orientation of the triangle.
 
 ``` {.rust #manifold-methods}
-fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], vertices: &[usize;4], triangles: &mut Vec<[VoxelEdge;3]>)
+fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], level: Self::Elem,
+                         vertices: &[usize;4], triangles: &mut Vec<[VoxelEdge;3]>)
 {
     let mut push_triangle = |a1: usize, a2: usize, b1: usize, b2: usize, c1: usize, c2: usize| {
         triangles.push([ (vertices[a1], vertices[a2])
@@ -92,10 +96,10 @@ fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], vertices: &[usize;4], trian
 
     let mut case: u8 = 0x00;
 
-    if self.point_inside(fx[vertices[0]]) { case |= 0x01; }
-    if self.point_inside(fx[vertices[1]]) { case |= 0x02; }
-    if self.point_inside(fx[vertices[2]]) { case |= 0x04; }
-    if self.point_inside(fx[vertices[3]]) { case |= 0x08; }
+    if self.point_inside(fx[vertices[0]], level) { case |= 0x01; }
+    if self.point_inside(fx[vertices[1]], level) { case |= 0x02; }
+    if self.point_inside(fx[vertices[2]], level) { case |= 0x04; }
+    if self.point_inside(fx[vertices[3]], level) { case |= 0x08; }
 
     match case {
         0x00 | 0x0F => {},
@@ -113,10 +117,10 @@ fn intersect_tetrahedron(&self, fx: &[Self::Elem;8], vertices: &[usize;4], trian
     }
 }
 
-fn intersect_voxel(&self, fx: &[Self::Elem;8]) -> Vec<[VoxelEdge;3]> {
+fn intersect_voxel(&self, fx: &[Self::Elem;8], level: Self::Elem) -> Vec<[VoxelEdge;3]> {
     let mut triangles = Vec::<[VoxelEdge;3]>::new();
     for tet in CUBE_CELLS {
-        self.intersect_tetrahedron(fx, &tet, &mut triangles);
+        self.intersect_tetrahedron(fx, level, &tet, &mut triangles);
     }
     triangles
 }
@@ -212,11 +216,93 @@ fn make_rel(a: [usize;3], b: [usize;3], shape: [usize;3]) -> [isize;3] {
 ```
 
 ``` {.rust #array-oracle}
-impl<S: Data + RawData<Elem=f64>> OrientableManifold for ArrayBase<S, Ix3> {
-    fn point_inside(&self, y: f64) -> bool {
-        y < 0.0
+impl<S: Data + RawData<Elem=f64>> Manifold for ArrayBase<S, Ix3> {
+    fn point_inside(&self, y: f64, level: f64) -> bool {
+        y < level
     }
 }
+```
+
+## Non-manifold surfaces
+The classic marching tetrahedra algorithm assumes that the approximated surface is a orientable manifold. This is why it suffices to have an oracle that tells if a given point is inside or outside the set for which we aske the boundary. A more generic case is that of non-manifold surfaces. In that case the surface may have a boundary itself, or in the case of tensor-field topology, we get three $A_3$ surfaces that meet in a $D_4$ line. It is now needed to ask the question: does this given segment intersect the surface?
+
+``` {.rust #non-manifold-trait}
+trait NonManifold: Oracle where Self::Elem: Clone {
+    fn edge_intersects(&self, a: [usize;3], b: [usize;3]) -> bool;
+    <<non-manifold-methods>>
+}
+```
+
+We could have the case that only one of the edges of a tetrahedron intersects the surface, meaning we would get a surface with a boundary inside that tetrahedron. Depending on the application, these locations may need different treatment.
+
+There are six edges to each tetrahedron, so $2^6 = 64$ possibilities. Only 8 of these cases are to be expected in manifold circumstances.
+
+``` {.rust #non-manifold-methods}
+fn intersect_tetrahedron(&self, fx: &[Self::Elem;8],
+                         vertices: &[usize;4],
+                         triangles: &mut Vec<[VoxelEdge;3]>)
+```
+
+``` {.rust #non-manifold-types}
+enum EdgeCase {
+    Empty,
+    <<edge-cases>>
+}
+```
+
+### Cases
+
+![Edge cases in non-manifold surface detection](edge-cases.svg){style="width: 100%; padding: 5pt 15pt 5pt 15pt"}
+
+#### One edge
+One edge intersects, we can store this case in a structure $((a, b), c, d)$, should have a routine that makes a triangle running from a point inside triangle $(a, b, c)$, one in $(d, a, b)$ and one on the edge $(a,b)$.
+
+``` {.rust #edge-cases}
+Single((Loc, Loc), Loc, Loc),  // Could be ignored
+```
+
+#### Two edges
+Either we have two edge with a common vertex, forming a wedge:
+
+This case is similar to a single edge, but now we should make two triangles, the outer edge making a quadrilateral area with the tetrahedron.
+
+We may also have two edges without common vertex. This is a degenerate case.
+
+``` {.rust #edge-cases}
+Wedge((Loc, Loc, Loc), Loc),       // Could be ignored
+Chopsticks((Loc, Loc), (Loc, Loc)),  // Could be ignored
+```
+
+#### Three edges
+
+``` {.rust #edge-cases}
+Tripod(Loc, (Loc, Loc, Loc)),        // OK
+Zigzag(Loc, Loc, Loc, Loc),          // Special but possible
+Triangle((Loc, Loc, Loc), Loc),      // Highly problematic
+```
+
+#### Four edges
+
+``` {.rust #edge-cases}
+Ring(Loc, Loc, Loc, Loc),            // OK
+Sundial((Loc, Loc, Loc), Loc),       // Tripod + confusion
+```
+
+#### Five edges
+
+``` {.rust #edge-cases}
+Flap((Loc, Loc), Loc, Loc),          // Ring + confusion
+```
+
+#### Six edges
+
+``` {.rust #edge-cases}
+Crazy(Loc, Loc, Loc, Loc)
+```
+
+### Implementation
+
+``` {.rust #non-manifold-methods}
 ```
 
 ``` {.rust file=src/marching_tetrahedra/mod.rs}
@@ -232,6 +318,9 @@ use ndarray::{Ix3, indices, Data, RawData, ArrayBase};
 <<cube-decomposition>>
 <<oracle-trait>>
 <<manifold-trait>>
+
+<<non-manifold-types>>
+<<non-manifold-trait>>
 
 <<array-oracle>>
 /*

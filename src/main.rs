@@ -152,7 +152,7 @@ fn main() -> Result<(), Error> {
         ("gadget-ics", Some(args)) => gadget_data::run_gadget_ics(args),
         ("eigen",      Some(args)) => caustics::run_eigen(args),
         ("a2",         Some(args)) => caustics::run_a2(args),
-        ("a3",         Some(args)) => caustics::run_a3(args),
+        // ("a3",         Some(args)) => caustics::run_a3(args),
         _                          => Ok(())
     }
 }
