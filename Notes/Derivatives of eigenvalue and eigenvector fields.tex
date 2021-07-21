@@ -15,38 +15,42 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Caustic conditions}
-Notation: $\bm{v}=(v_1,v_2)$ in $2$D and $\bm{v}=(v_1,v_2,v_3)$, and the derivatives $\partial_i = \frac{\partial}{\partial q_i}$.
+Notation: We will here study the caustic conditions corresponding to the eigen equation
+\begin{align}
+H \bm{v} = \lambda \bm{v},
+\end{align}
+with the deformation tensor $H$, the eigenvalue field $\lambda$, and the eigenvector field $\bm{v}$. Let $\bm{v}=(v_1,v_2)$ in $2$D and $\bm{v}=(v_1,v_2,v_3)$ in $3$D. The eigenvector field is normalized by $\bm{v}^T\bm{v}=1$. We define the partial derivative in the $q_j$ direction as $\partial_i = \frac{\partial}{\partial q_i}$. We use Einstein summation convention for repeated indices. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Cusp $A_3$}
-We study the identiy
+The cusps are defined by the condition
 \begin{align}
 0
 &= \bm{v} \cdot \nabla \lambda\\
-&= v_i \partial_i \lambda
+&= v_i \partial_i \lambda.
 \end{align}
-Using the identity for the first order derivative of the eigenvalue field, we obtain 
+Using the identity for the first order derivative of the eigenvalue field, we can write this condition as
 \begin{align}
 0= \bm{v}^T  (v_i \partial_i H)\bm{v}
 \end{align}
-where $v_i \partial_i H$ is the partial derivative of the deformation tensor in the direction of the eigenvector field $\bm{v}$.
+where $v_i \partial_i H$ is the partial derivative of the deformation tensor in the direction of the eigenvector field $\bm{v}$. Note that this identity enables us to replace an interpolation over the eigenvalue field by an interpolation over the deformation field.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Swallowtail $A_4$}
-We study the identiy
+The swallowtail is defined by the condition
 \begin{align}
 0
 &= \bm{v} \cdot \nabla (\bm{v} \cdot \nabla \lambda)\\
 &= v_j \partial_j(v_i \partial_i \lambda)\\
 &= v_j \partial_j v_i \partial_i \lambda + v_i v_j   \partial_i \partial_j \lambda.
 \end{align}
-We can interpret the first term $v_j \partial_j v_i \partial_i \lambda $ as follows. Firstly, we evaluate the partial derivative of $\bm{v}$ in the direction $\bm{v}$. Secondly, we evaluate the directional derivative of $\lambda$ in this direction. Both the first order derivative of $\bm{v}$ and $\lambda$ can be written in terms of first order derivatives of the deformation field $H$. The second term is simply the second order derivative of $\lambda$ in the direction $\bm{v}$. We can express this one as a second order derivative of the deformation field.
+We can interpret the first term $v_j \partial_j v_i \partial_i \lambda $ as in two steps. Firstly, we evaluate the partial derivative of $\bm{v}$ in the direction $\bm{v}$. Secondly, we evaluate the directional derivative of $\lambda$ in this direction. Both the first order derivative of $\bm{v}$ and $\lambda$ can be written in terms of first order derivatives of the deformation field $H$. The second term is simply the second order derivative of $\lambda$ in the direction $\bm{v}$. We can express this term in terms of the second order derivative of the deformation field $H$.
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Butterfly $A_5$}
-We study the identiy
+The butterfly caustic is defined by the condition
 \begin{align}
 0
 &=\bm{v}\cdot \nabla( \bm{v} \cdot \nabla (\bm{v} \cdot \nabla \lambda))\\
@@ -57,12 +61,10 @@ v_k (\partial_k v_j \partial_j v_i + v_j \partial_j\partial_k v_i)\partial_i \la
 + 3 v_i v_k \partial_k v_j \partial_i \partial_j \lambda
 + v_i v_j v_k \partial_i \partial_j \partial_k \lambda.
 \end{align}
-It is again possible to write the first, second, and third order derivatives of the eigenvalue and eigenvector fields in terms of first, second and third order derivatives of the deformation field. I still need to evaluate the second order derivative of the eigenvector field and the third order derivative of the eigenvalue field.
+It is again possible to write the first, second, and third order derivatives of the eigenvalue and eigenvector fields in terms of first, second and third order derivatives of the deformation field. 
 
-
-\newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Derivatives}
+\section{Derivatives of the eigenvalue and eigenvector fields}
 Consider the eigenvalue $\lambda$ and eigenvector fields $\bm{v}$ of the deformation field $H$ satisfying the equation
 \begin{align}
 H \bm{v} = \lambda \bm{v},
@@ -119,12 +121,45 @@ Again, after multiplying this equation with $\bm{v}^T$ from the left, we obtain
 =
 \bm{v}^T\partial_i \partial_j H \bm{v} + \bm{v}^T (\partial_i H \partial_j \bm{v} + \partial_j H \partial_i \bm{v} ),
 \end{align}
-since $\bm{v}^T\bm{v}=1$, $\bm{v}^T \partial_i \bm{v}=0$, and $\bm{v}^TH=\lambda \bm{v}^T$. Note that the second term is a simple symmetrization over the indices $i$ and $j$.
+since $\bm{v}^T\bm{v}=1$, $\bm{v}^T \partial_i \bm{v}=0$, and $\bm{v}^TH=\lambda \bm{v}^T$. Note that the second term is a simple symmetrization over the indices $i$ and $j$. We can simplify this equation using the symmetrization operator over $i$ and $j$, i.e., given
+\begin{align}
+S[A_{ij}]=\frac{1}{2}(A_{ij}+A_{ji}),
+\end{align}
+we obtian
+\begin{align}
+\partial_i \partial_j \lambda = S[\bm{v}^T (\partial_i \partial_j H \bm{v} + 2 \partial_i H \partial_j \bm{v})].
+\end{align}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Second order derivative of the eigenvector field}
+Upon differentiating the definition of the eigenvalue and eigenvector fields twice, we obtain the identity 
+\begin{align}
+\partial_i \partial_j H \bm{v} + \partial_i H \partial_j \bm{v} + \partial_j H \partial_i \bm{v} + H \partial_i \partial_j \bm{v}
+= \partial_i \partial_j \lambda \bm{v} + \partial_i \lambda \partial_j \bm{v}+ \partial_j \lambda \partial_i \bm{v} + \lambda \partial_i \partial_j \bm{v}.
+\end{align}
+After rearanging this identity and multiplying by the inverse $(H-\lambda I)^+$ from the left, we obtain
+\begin{align}
+\partial_i \partial_j \bm{v} = S[(\lambda I - H)^+ ( \partial_i H \partial_j \bm{v} + \partial_i \partial_j H \bm{v} - \partial_i \lambda \partial_j \bm{v})].
+\end{align}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Thrid order derivative of the eigenvalue field}
-
+\subsection{Third order derivative of the eigenvalue field}
+Upon differentiating the definition of the eigenvalue and eigenvector fields three times, and multiplying on the left with $\bm{v}^T$ we obtain the identity
+\begin{align}
+\partial_i \partial_j \partial_k \lambda = S[\bm{v}^T(
+\partial_i \partial_j \partial_k H \bm{v} 
++3 \partial_i \partial_j H \partial_k \bm{v} 
++3 \partial_i H \partial_j \partial_k \bm{v} 
+-3 \partial_i \partial_j \lambda \partial_k \bm{v} 
+-3 \partial_i \lambda \partial_j \partial_k \bm{v})],
+\end{align}
+where the symmetrization operation over $i$, $j$, and $k$ is defined as
+\begin{align}
+S[A_{ijk}] = \frac{1}{6}(A_{ijk} + A_{ikj} + A_{jik} + A_{jki} + A_{kij} + A_{kji}).
+\end{align}
+Note that due to the symmetry of the argument, we can use the simpler symmetrization over cyclic permutations
+\begin{align}
+S[A_{ijk}] = \frac{1}{3}(A_{ijk} + A_{jki} + A_{kij}).
+\end{align}
 \end{document}
