@@ -53,7 +53,7 @@ fn level_set(&self, level: Self::Elem) -> Mesh {
 First we scan each voxel for any intersections. We don't yet compute the actual location of the triangles, just the locations in the grid where there must be a triangle. Each proto-triangle consists of three proto-vertices, where a proto-vertex consists of two neighbouring grid points of which we know one is inside and the other outside. These proto-triangles can be found independently from each other.
 
 ``` {.rust #marching-tetrahedra-types}
-type Loc = [usize;3]
+type Loc = [usize;3];
 type ProtoVertex = (Loc, Loc);
 ```
 
@@ -228,7 +228,7 @@ The classic marching tetrahedra algorithm assumes that the approximated surface 
 
 ``` {.rust #non-manifold-trait}
 trait NonManifold: Oracle where Self::Elem: Clone {
-    fn edge_intersects(&self, a: [usize;3], b: [usize;3]) -> bool;
+    fn edge_intersects(&self, a: &Self::Elem, b: &Self::Elem) -> bool;
     <<non-manifold-methods>>
 }
 ```
@@ -239,12 +239,99 @@ There are six edges to each tetrahedron, so $2^6 = 64$ possibilities. Only 8 of 
 
 ``` {.rust #non-manifold-methods}
 fn intersect_tetrahedron(&self, fx: &[Self::Elem;8],
-                         vertices: &[usize;4],
-                         triangles: &mut Vec<[VoxelEdge;3]>)
+                         vertices: &[usize;4]) -> EdgeCase<usize> {
+    let mut tag: usize = 0;
+    let mut bit: usize = 1;
+
+    // 01: 0, 1
+    // 02: 0, 2
+    // 04: 0, 3
+    // 08: 1, 2
+    // 0F: 1, 3
+    // 10: 2, 3
+    for v1 in 0..4 {
+        let w1 = vertices[v1];
+        for v2 in (v1+1)..4 {
+            let w2 = vertices[v2];
+            if self.edge_intersects(&fx[w1], &fx[w2]) {
+                tag &= bit;
+            }
+            bit <<= 1;
+        }
+    }
+
+    match tag {
+        0x00 => EdgeCase::Empty,
+        0x01 => EdgeCase::Single((0, 1), 2, 3),
+        0x02 => EdgeCase::Single((0, 2), 1, 3),
+        0x03 => EdgeCase::Wedge((1, 0, 2), 3),
+        0x04 => EdgeCase::Single((0, 3), 1, 2),
+        0x05 => EdgeCase::Wedge((1, 0, 3), 2),
+        0x06 => EdgeCase::Wedge((2, 0, 3), 1),
+        0x07 => EdgeCase::Tripod(0, (1, 2, 3)),
+        0x08 => EdgeCase::Single((1, 2), 0, 3),
+        0x09 => EdgeCase::Wedge((0, 1, 2), 3),
+        0x0A => EdgeCase::Wedge((0, 2, 1), 3),
+        0x0B => EdgeCase::Triangle((0, 1, 2), 3),
+        0x0C => EdgeCase::Chopsticks((0, 3), (1, 2)),
+        0x0D => EdgeCase::Zigzag(2, 1, 0, 3),
+        0x0E => EdgeCase::Zigzag(1, 2, 0, 3),
+        0x0F => EdgeCase::Sundial((1, 3, 2), 0),
+        0x10 => EdgeCase::Single((1, 3), 0, 2),
+        0x11 => EdgeCase::Wedge((0, 1, 3), 2),
+        0x12 => EdgeCase::Chopsticks((0, 2), (1, 3)),
+        0x13 => EdgeCase::Zigzag(2, 0, 1, 3),
+        0x14 => EdgeCase::Wedge((0, 3, 1), 2),
+        0x15 => EdgeCase::Triangle((0, 1, 3), 2),
+        0x16 => EdgeCase::Zigzag(1, 3, 0, 2),
+        0x17 => EdgeCase::Sundial((1, 2, 3), 0),
+        0x18 => EdgeCase::Wedge((2, 1, 3), 0),
+        0x19 => EdgeCase::Tripod(1, (0, 2, 3)),
+        0x1A => EdgeCase::Zigzag(0, 2, 1, 3),
+        0x1B => EdgeCase::Sundial((0, 3, 2), 1),
+        0x1C => EdgeCase::Zigzag(0, 3, 1, 2),
+        0x1D => EdgeCase::Sundial((0, 2, 3), 1),
+        0x1E => EdgeCase::Ring(0, 2, 1, 3),
+        0x1F => EdgeCase::Flap((2, 3), 0, 1),
+        0x20 => EdgeCase::Single((2, 3), 0, 1),
+        0x21 => EdgeCase::Chopsticks((0, 1), (2, 3)),
+        0x22 => EdgeCase::Wedge((0, 2, 3), 1),
+        0x23 => EdgeCase::Zigzag(1, 0, 2, 3),
+        0x24 => EdgeCase::Wedge((0, 3, 2), 1),
+        0x25 => EdgeCase::Zigzag(1, 0, 3, 2),
+        0x26 => EdgeCase::Triangle((0, 2, 3), 1),
+        0x27 => EdgeCase::Sundial((2, 1, 3), 0),
+        0x28 => EdgeCase::Wedge((1, 2, 3), 0),
+        0x29 => EdgeCase::Zigzag(0, 1, 2, 3),
+        0x2A => EdgeCase::Tripod(2, (0, 1, 3)),
+        0x2B => EdgeCase::Sundial((0, 3, 1), 2),
+        0x2C => EdgeCase::Zigzag(0, 3, 2, 1),
+        0x2D => EdgeCase::Ring(0, 1, 2, 3),
+        0x2E => EdgeCase::Sundial((0, 1, 3), 2),
+        0x2F => EdgeCase::Flap((1, 3), 0, 2),
+        0x30 => EdgeCase::Wedge((1, 3, 2), 0),
+        0x31 => EdgeCase::Zigzag(0, 1, 3, 2),
+        0x32 => EdgeCase::Zigzag(0, 2, 3, 1),
+        0x33 => EdgeCase::Ring(0, 1, 3, 2),
+        0x34 => EdgeCase::Tripod(3, (0, 1, 2)),
+        0x35 => EdgeCase::Sundial((0, 2, 1), 3),
+        0x36 => EdgeCase::Sundial((0, 1, 2), 3),
+        0x37 => EdgeCase::Flap((1, 2), 0, 3),
+        0x38 => EdgeCase::Triangle((1, 2, 3), 0),
+        0x39 => EdgeCase::Sundial((2, 0, 3), 1),
+        0x3A => EdgeCase::Sundial((1, 0, 3), 2),
+        0x3B => EdgeCase::Flap((0, 3), 1, 2),
+        0x3C => EdgeCase::Sundial((1, 0, 2), 3),
+        0x3D => EdgeCase::Flap((0, 2), 1, 3),
+        0x3E => EdgeCase::Flap((0, 1), 2, 3),
+        0x3F => EdgeCase::Total,
+        _    => panic!("Impossible case")
+    }
+}
 ```
 
 ``` {.rust #non-manifold-types}
-enum EdgeCase {
+enum EdgeCase<T> {
     Empty,
     <<edge-cases>>
 }
@@ -258,7 +345,7 @@ enum EdgeCase {
 One edge intersects, we can store this case in a structure $((a, b), c, d)$, should have a routine that makes a triangle running from a point inside triangle $(a, b, c)$, one in $(d, a, b)$ and one on the edge $(a,b)$.
 
 ``` {.rust #edge-cases}
-Single((Loc, Loc), Loc, Loc),  // Could be ignored
+Single((T, T), T, T),        // Could be ignored
 ```
 
 #### Two edges
@@ -269,40 +356,41 @@ This case is similar to a single edge, but now we should make two triangles, the
 We may also have two edges without common vertex. This is a degenerate case.
 
 ``` {.rust #edge-cases}
-Wedge((Loc, Loc, Loc), Loc),       // Could be ignored
-Chopsticks((Loc, Loc), (Loc, Loc)),  // Could be ignored
+Wedge((T, T, T), T),         // Could be ignored
+Chopsticks((T, T), (T, T)),  // Could be ignored
 ```
 
 #### Three edges
 
 ``` {.rust #edge-cases}
-Tripod(Loc, (Loc, Loc, Loc)),        // OK
-Zigzag(Loc, Loc, Loc, Loc),          // Special but possible
-Triangle((Loc, Loc, Loc), Loc),      // Highly problematic
+Tripod(T, (T, T, T)),        // OK
+Zigzag(T, T, T, T),          // Special but possible
+Triangle((T, T, T), T),      // Highly problematic
 ```
 
 #### Four edges
 
 ``` {.rust #edge-cases}
-Ring(Loc, Loc, Loc, Loc),            // OK
-Sundial((Loc, Loc, Loc), Loc),       // Tripod + confusion
+Ring(T, T, T, T),            // OK
+Sundial((T, T, T), T),       // Tripod + confusion
 ```
 
 #### Five edges
 
 ``` {.rust #edge-cases}
-Flap((Loc, Loc), Loc, Loc),          // Ring + confusion
+Flap((T, T), T, T),        // Ring + confusion
 ```
 
 #### Six edges
 
 ``` {.rust #edge-cases}
-Crazy(Loc, Loc, Loc, Loc)
+Total
 ```
 
 ### Implementation
 
 ``` {.rust #non-manifold-methods}
+
 ```
 
 ``` {.rust file=src/marching_tetrahedra/mod.rs}
