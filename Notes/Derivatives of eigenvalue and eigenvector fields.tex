@@ -44,8 +44,12 @@ The swallowtail is defined by the condition
 &= v_j \partial_j(v_i \partial_i \lambda)\\
 &= v_j \partial_j v_i \partial_i \lambda + v_i v_j   \partial_i \partial_j \lambda.
 \end{align}
-We can interpret the first term $v_j \partial_j v_i \partial_i \lambda $ as in two steps. Firstly, we evaluate the partial derivative of $\bm{v}$ in the direction $\bm{v}$. Secondly, we evaluate the directional derivative of $\lambda$ in this direction. Both the first order derivative of $\bm{v}$ and $\lambda$ can be written in terms of first order derivatives of the deformation field $H$. The second term is simply the second order derivative of $\lambda$ in the direction $\bm{v}$. We can express this term in terms of the second order derivative of the deformation field $H$.
+We can interpret the first term $v_j \partial_j v_i \partial_i \lambda $ as in two steps. Firstly, we evaluate the partial derivative of $\bm{v}$ in the direction $\bm{v}$. Secondly, we evaluate the directional derivative of $\lambda$ in this direction. Both the first order derivative of $\bm{v}$ and $\lambda$ can be written in terms of first order derivatives of the deformation field $H$. The second term is simply the second order derivative of $\lambda$ in the direction $\bm{v}$. We can express this term in terms of the second order derivative of the deformation field $H$. Concretely, we obtain
 
+\begin{align}
+0&= v_j \partial_j v_i \partial_i \lambda + v_i v_j   \partial_i \partial_j \lambda\\
+&= \bm{v}^T[(\lambda I - H)^+ v_j\partial_j H \bm{v}]_i\partial_i H \bm{v}     + \bm{v}^T ( v_i v_j \partial_i \partial_j H \bm{v} +  2 v_i  \partial_i H v_j\partial_j \bm{v} ).
+\end{align}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,7 +61,7 @@ The butterfly caustic is defined by the condition
 &= v_k \partial_k(v_j \partial_j(v_i \partial_i \lambda))\\
 &= v_k \partial_k(v_j \partial_j v_i \partial_i \lambda + v_j  v_i \partial_i \partial_j \lambda)\\
 &= 
-v_k (\partial_k v_j \partial_j v_i + v_j \partial_j\partial_k v_i)\partial_i \lambda + 
+v_k (\partial_k v_j \partial_j v_i + v_j \partial_j\partial_k v_i)\partial_i \lambda 
 + 3 v_i v_k \partial_k v_j \partial_i \partial_j \lambda
 + v_i v_j v_k \partial_i \partial_j \partial_k \lambda.
 \end{align}
@@ -139,7 +143,10 @@ Upon differentiating the definition of the eigenvalue and eigenvector fields twi
 \end{align}
 After rearanging this identity and multiplying by the inverse $(H-\lambda I)^+$ from the left, we obtain
 \begin{align}
-\partial_i \partial_j \bm{v} = S[(\lambda I - H)^+ ( \partial_i H \partial_j \bm{v} + \partial_i \partial_j H \bm{v} - \partial_i \lambda \partial_j \bm{v})].
+\partial_i \partial_j \bm{v} = S[(\lambda I - H)^+ ( 
+\partial_i \partial_j H \bm{v}  
++2 \partial_i H \partial_j \bm{v} 
+- 2\partial_i \lambda \partial_j \bm{v})].
 \end{align}
 
 
