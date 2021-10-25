@@ -7,6 +7,7 @@ use crate::marching_tetrahedra;
 use super::hessian::Hessian;
 
 use ndarray::{ArrayView3, Ix3, indices};
+use marching_tetrahedra::Loc;
 
 #[inline]
 fn to_array(i: Ix3) -> [usize;3] {
@@ -77,15 +78,13 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         to_array(self.value.raw_dim())
     }
 
-    fn stencil(&self, x: [usize;3]) -> [f64;8] {
+    fn loc_stencil(&self, x: [usize;3]) -> [(Loc, Self::Elem);8] {
         let s = self.grid_shape();
-        let mut result = [0.0;8];
-        let e_ref = &self.vector[x];
+        let mut result = [([0;3], 0.0);8];
 
         for (j, k) in indices([2, 2, 2]).into_iter().enumerate() {
             let other = [(x[0] + k.0) % s[0], (x[1] + k.1) % s[1], (x[2] + k.2) % s[2]];
-            let sign = e_ref.dot(&self.vector[other]).signum();
-            result[j] = sign * stencil::discrete_gradient(&self.value, other).dot(&self.vector[other]);
+            result[j] = (other, stencil::discrete_gradient(&self.value, other).dot(&self.vector[other]));
         }
         result
     }
@@ -109,6 +108,18 @@ impl<'a> marching_tetrahedra::Oracle for EigenSolution<'a> {
         let loc = y_a / (y_a - y_b);
         let a_rel = a.map(|i| i as isize);
         Some(grid_pos(a_rel) + grid_pos(make_rel(a, b, self.grid_shape())) * loc)
+    }
+
+    fn edge_intersects(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> bool {
+        let sign = self.vector[a.0].dot(&self.vector[b.0]).signum();
+        a.1 * b.1 * sign < 0.0
+    }
+
+    fn intersect_e(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> Vec3 {
+        let sign = self.vector[a.0].dot(&self.vector[b.0]).signum();
+        let loc = a.1 / (a.1 - b.1 * sign);
+        let a_rel = a.0.map(|i| i as isize);
+        grid_pos(a_rel) + grid_pos(make_rel(a.0, b.0, self.grid_shape())) * loc
     }
 }
 // ~\~ end

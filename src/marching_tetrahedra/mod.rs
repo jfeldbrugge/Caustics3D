@@ -8,7 +8,7 @@ use crate::mesh::{Mesh};
 use ndarray::{Ix3, indices, Data, RawData, ArrayBase};
 
 // ~\~ begin <<lit/marching-tetrahedra.md|marching-tetrahedra-types>>[0]
-type Loc = [usize;3];
+pub type Loc = [usize;3];
 type ProtoVertex = (Loc, Loc);
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|marching-tetrahedra-utils>>[0]
@@ -63,9 +63,15 @@ const CUBE_CELLS: [[usize;4];6] =
 // ~\~ begin <<lit/marching-tetrahedra.md|oracle-trait>>[0]
 pub trait Oracle {
     type Elem;
+
     fn grid_shape(&self) -> [usize;3];
-    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8];
+    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8] {
+        self.loc_stencil(x).map(|i| i.1)
+    }
+    fn loc_stencil(&self, x: Loc) -> [(Loc,Self::Elem);8];
     fn intersect(&self, a: [usize;3], b: [usize;3]) -> Option<Vec3>;
+    fn edge_intersects(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> bool;
+    fn intersect_e(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> Vec3;
 }
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|manifold-trait>>[0]
@@ -187,10 +193,9 @@ enum EdgeCase<T> {
 }
 // ~\~ end
 // ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-trait>>[0]
-trait NonManifold: Oracle where Self::Elem: Clone {
-    fn edge_intersects(&self, a: &Self::Elem, b: &Self::Elem) -> bool;
+pub trait NonManifold: Oracle where Self::Elem: Clone {
     // ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-methods>>[0]
-    fn intersect_tetrahedron(&self, fx: &[Self::Elem;8],
+    fn intersect_tetrahedron(&self, fx: &[(Loc, Self::Elem);8],
                              vertices: &[usize;4]) -> EdgeCase<usize> {
         let mut tag: usize = 0;
         let mut bit: usize = 1;
@@ -290,7 +295,7 @@ trait NonManifold: Oracle where Self::Elem: Clone {
 
         for ix in indices(self.grid_shape()) {
             let index = [ix.0, ix.1, ix.2];
-            let fx = self.stencil(index);
+            let fx = self.loc_stencil(index);
 
             for tet in CUBE_CELLS {
                 let mut push = |(a, b), (c, d), (e, f)| {
@@ -357,8 +362,11 @@ impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
         let s = self.shape();
         [s[0], s[1], s[2]]
     }
-    fn stencil(&self, x: [usize;3]) -> [f64;8] { 
+    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8] { 
         stencil::flat_2x2x2(&self.view(), x)
+    }
+    fn loc_stencil(&self, x: [usize;3]) -> [(Loc, Self::Elem);8] { 
+        stencil::flat_indexed_2x2x2(&self.view(), x)
     }
     fn intersect(&self, a: [usize;3], b: [usize;3]) -> Option<Vec3> {
         let y_a = self[a];
@@ -369,6 +377,13 @@ impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
             let loc = y_a / (y_a - y_b);
             Some(ugrid_pos(a) + grid_pos(make_rel(a, b, self.grid_shape())) * loc)
         }
+    }
+    fn edge_intersects(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> bool {
+        a.1 * b.1 > 0.0
+    }
+    fn intersect_e(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> Vec3 {
+        let loc = a.1 / (a.1 - b.1);
+        ugrid_pos(a.0) + grid_pos(make_rel(a.0, b.0, self.grid_shape())) * loc
     }
 }
 // ~\~ end

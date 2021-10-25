@@ -5,9 +5,15 @@ What do we need? An oracle!
 ``` {.rust #oracle-trait}
 pub trait Oracle {
     type Elem;
+
     fn grid_shape(&self) -> [usize;3];
-    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8];
+    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8] {
+        self.loc_stencil(x).map(|i| i.1)
+    }
+    fn loc_stencil(&self, x: Loc) -> [(Loc,Self::Elem);8];
     fn intersect(&self, a: [usize;3], b: [usize;3]) -> Option<Vec3>;
+    fn edge_intersects(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> bool;
+    fn intersect_e(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> Vec3;
 }
 ```
 
@@ -53,7 +59,7 @@ fn level_set(&self, level: Self::Elem) -> Mesh {
 First we scan each voxel for any intersections. We don't yet compute the actual location of the triangles, just the locations in the grid where there must be a triangle. Each proto-triangle consists of three proto-vertices, where a proto-vertex consists of two neighbouring grid points of which we know one is inside and the other outside. These proto-triangles can be found independently from each other.
 
 ``` {.rust #marching-tetrahedra-types}
-type Loc = [usize;3];
+pub type Loc = [usize;3];
 type ProtoVertex = (Loc, Loc);
 ```
 
@@ -171,8 +177,11 @@ impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
         let s = self.shape();
         [s[0], s[1], s[2]]
     }
-    fn stencil(&self, x: [usize;3]) -> [f64;8] { 
+    fn stencil(&self, x: [usize;3]) -> [Self::Elem;8] { 
         stencil::flat_2x2x2(&self.view(), x)
+    }
+    fn loc_stencil(&self, x: [usize;3]) -> [(Loc, Self::Elem);8] { 
+        stencil::flat_indexed_2x2x2(&self.view(), x)
     }
     fn intersect(&self, a: [usize;3], b: [usize;3]) -> Option<Vec3> {
         let y_a = self[a];
@@ -183,6 +192,13 @@ impl<S: Data + RawData<Elem=f64>> Oracle for ArrayBase<S, Ix3> {
             let loc = y_a / (y_a - y_b);
             Some(ugrid_pos(a) + grid_pos(make_rel(a, b, self.grid_shape())) * loc)
         }
+    }
+    fn edge_intersects(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> bool {
+        a.1 * b.1 > 0.0
+    }
+    fn intersect_e(&self, a: &(Loc, Self::Elem), b: &(Loc, Self::Elem)) -> Vec3 {
+        let loc = a.1 / (a.1 - b.1);
+        ugrid_pos(a.0) + grid_pos(make_rel(a.0, b.0, self.grid_shape())) * loc
     }
 }
 ```
@@ -227,8 +243,7 @@ impl<S: Data + RawData<Elem=f64>> Manifold for ArrayBase<S, Ix3> {
 The classic marching tetrahedra algorithm assumes that the approximated surface is a orientable manifold. This is why it suffices to have an oracle that tells if a given point is inside or outside the set for which we aske the boundary. A more generic case is that of non-manifold surfaces. In that case the surface may have a boundary itself, or in the case of tensor-field topology, we get three $A_3$ surfaces that meet in a $D_4$ line. It is now needed to ask the question: does this given segment intersect the surface?
 
 ``` {.rust #non-manifold-trait}
-trait NonManifold: Oracle where Self::Elem: Clone {
-    fn edge_intersects(&self, a: &Self::Elem, b: &Self::Elem) -> bool;
+pub trait NonManifold: Oracle where Self::Elem: Clone {
     <<non-manifold-methods>>
 }
 ```
@@ -238,7 +253,7 @@ We could have the case that only one of the edges of a tetrahedron intersects th
 There are six edges to each tetrahedron, so $2^6 = 64$ possibilities. Only 8 of these cases are to be expected in manifold circumstances.
 
 ``` {.rust #non-manifold-methods}
-fn intersect_tetrahedron(&self, fx: &[Self::Elem;8],
+fn intersect_tetrahedron(&self, fx: &[(Loc, Self::Elem);8],
                          vertices: &[usize;4]) -> EdgeCase<usize> {
     let mut tag: usize = 0;
     let mut bit: usize = 1;
@@ -398,7 +413,7 @@ fn free_predicate_set(&self) -> Mesh {
 
     for ix in indices(self.grid_shape()) {
         let index = [ix.0, ix.1, ix.2];
-        let fx = self.stencil(index);
+        let fx = self.loc_stencil(index);
 
         for tet in CUBE_CELLS {
             let mut push = |(a, b), (c, d), (e, f)| {
