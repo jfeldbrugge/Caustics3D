@@ -282,7 +282,69 @@ trait NonManifold: Oracle where Self::Elem: Clone {
     }
     // ~\~ end
     // ~\~ begin <<lit/marching-tetrahedra.md|non-manifold-methods>>[1]
+    // Extracts only Tripod and Ring cases, if you use this on a case that actually
+    // yields a closed manifold, other cases should not appear.
+    fn free_predicate_set(&self) -> Mesh {
+        use std::collections::BTreeMap;
+        let mut proto_triangles = Vec::<[ProtoVertex;3]>::new();
 
+        for ix in indices(self.grid_shape()) {
+            let index = [ix.0, ix.1, ix.2];
+            let fx = self.stencil(index);
+
+            for tet in CUBE_CELLS {
+                let mut push = |(a, b), (c, d), (e, f)| {
+                    proto_triangles.push(offset_voxel_edge(self.grid_shape(), index,
+                        [(tet[a], tet[b]), (tet[c], tet[d]), (tet[e], tet[f])]))
+                };
+                let edge_case = self.intersect_tetrahedron(&fx, &tet);
+                match edge_case {
+                    EdgeCase::Tripod(a, (b, c, d)) => {
+                        push((a, b), (a, c), (a, d));
+                    }
+                    EdgeCase::Ring(a, b, c, d) => {
+                        let ve1 = offset_voxel_edge(self.grid_shape(), index,
+                            [(tet[a], tet[b]), (tet[b], tet[c]), (tet[c], tet[d])]);
+                        let ve2 = offset_voxel_edge(self.grid_shape(), index,
+                            [(tet[c], tet[d]), (tet[d], tet[a]), (tet[a], tet[b])]);
+                        proto_triangles.push(ve1);
+                        proto_triangles.push(ve2);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // ~\~ begin <<lit/marching-tetrahedra.md|level-set-combine>>[0]
+        let mut proto_vertices = BTreeMap::new();
+        let mut triangles = Vec::with_capacity(proto_triangles.len());
+        let mut get_index = |edge: ProtoVertex| -> usize {
+            let s = proto_vertices.len();
+            if proto_vertices.contains_key(&edge) {
+                proto_vertices[&edge]
+            } else {
+                proto_vertices.insert(edge, s);
+                s
+            }
+        };
+
+        for [a, b, c] in proto_triangles {
+            triangles.push([get_index(a), get_index(b), get_index(c)]);
+        }
+        // ~\~ end
+        // ~\~ begin <<lit/marching-tetrahedra.md|level-set-compute>>[0]
+        let mut vertices = Vec::new();
+        vertices.resize(proto_vertices.len(), Vec3([0.,0.,0.]));
+        for ((a, b), i) in proto_vertices.iter() {
+            vertices[*i] = self.intersect(*a, *b).unwrap();
+        }
+
+        Mesh {
+            triangles: triangles,
+            vertices: vertices
+        }
+        // ~\~ end
+    }
     // ~\~ end
 }
 // ~\~ end

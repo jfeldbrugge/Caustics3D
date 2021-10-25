@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "caustics3d"
+version = "0.1.0"
+description = ""
+authors = ["Johan Hidding <j.hidding@esciencecenter.nl>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+entangled-filters = "^0.8.3"
+pandoc-fignos = "^2.4.0"
+pandoc-eqnos = "^2.5.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

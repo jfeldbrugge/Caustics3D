@@ -390,7 +390,42 @@ Total
 ### Implementation
 
 ``` {.rust #non-manifold-methods}
+// Extracts only Tripod and Ring cases, if you use this on a case that actually
+// yields a closed manifold, other cases should not appear.
+fn free_predicate_set(&self) -> Mesh {
+    use std::collections::BTreeMap;
+    let mut proto_triangles = Vec::<[ProtoVertex;3]>::new();
 
+    for ix in indices(self.grid_shape()) {
+        let index = [ix.0, ix.1, ix.2];
+        let fx = self.stencil(index);
+
+        for tet in CUBE_CELLS {
+            let mut push = |(a, b), (c, d), (e, f)| {
+                proto_triangles.push(offset_voxel_edge(self.grid_shape(), index,
+                    [(tet[a], tet[b]), (tet[c], tet[d]), (tet[e], tet[f])]))
+            };
+            let edge_case = self.intersect_tetrahedron(&fx, &tet);
+            match edge_case {
+                EdgeCase::Tripod(a, (b, c, d)) => {
+                    push((a, b), (a, c), (a, d));
+                }
+                EdgeCase::Ring(a, b, c, d) => {
+                    let ve1 = offset_voxel_edge(self.grid_shape(), index,
+                        [(tet[a], tet[b]), (tet[b], tet[c]), (tet[c], tet[d])]);
+                    let ve2 = offset_voxel_edge(self.grid_shape(), index,
+                        [(tet[c], tet[d]), (tet[d], tet[a]), (tet[a], tet[b])]);
+                    proto_triangles.push(ve1);
+                    proto_triangles.push(ve2);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    <<level-set-combine>>
+    <<level-set-compute>>
+}
 ```
 
 ``` {.rust file=src/marching_tetrahedra/mod.rs}
